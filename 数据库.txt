@@ -1,0 +1,403 @@
+DROP DATABASE IF EXISTS student_manage_system ;
+-- ==================== 学生管理系统数据库创建脚本 ====================
+CREATE DATABASE IF NOT EXISTS student_manage_system;
+USE student_manage_system;
+
+-- ==================== 建表语句 ====================
+
+-- 用户表
+CREATE TABLE IF NOT EXISTS `user` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `username` VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
+    `password` VARCHAR(255) NOT NULL COMMENT '密码',
+    `salt` VARCHAR(50) DEFAULT '' COMMENT '盐值',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- 角色表
+CREATE TABLE IF NOT EXISTS `role` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(50) NOT NULL UNIQUE COMMENT '角色名称',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
+
+-- 权限表
+CREATE TABLE IF NOT EXISTS `permission` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL UNIQUE COMMENT '权限名称',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='权限表';
+
+-- 用户角色关联表
+CREATE TABLE IF NOT EXISTS `user_role` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `role_id` BIGINT NOT NULL COMMENT '角色ID',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE KEY `uk_user_role` (`user_id`, `role_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES `role`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色关联表';
+
+-- 角色权限关联表
+CREATE TABLE IF NOT EXISTS `role_permission` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `role_id` BIGINT NOT NULL COMMENT '角色ID',
+    `permission_id` BIGINT NOT NULL COMMENT '权限ID',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE KEY `uk_role_permission` (`role_id`, `permission_id`),
+    FOREIGN KEY (`role_id`) REFERENCES `role`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`permission_id`) REFERENCES `permission`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限关联表';
+
+-- 学院表
+CREATE TABLE IF NOT EXISTS `college` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL COMMENT '学院名称',
+    `code` VARCHAR(20) NOT NULL UNIQUE COMMENT '学院编码',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学院表';
+
+-- 学生表
+CREATE TABLE IF NOT EXISTS `student` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL UNIQUE COMMENT '用户ID',
+    `student_no` VARCHAR(20) NOT NULL UNIQUE COMMENT '学号',
+    `name` VARCHAR(50) NOT NULL COMMENT '姓名',
+    `college_id` BIGINT NOT NULL COMMENT '学院ID',
+    `grade` VARCHAR(10) NOT NULL COMMENT '年级',
+    `class` VARCHAR(20) NOT NULL COMMENT '班级',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`college_id`) REFERENCES `college`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生表';
+
+-- 教师表
+CREATE TABLE IF NOT EXISTS `teacher` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL UNIQUE COMMENT '用户ID',
+    `teacher_no` VARCHAR(20) NOT NULL UNIQUE COMMENT '教师编号',
+    `name` VARCHAR(50) NOT NULL COMMENT '姓名',
+    `college_id` BIGINT NOT NULL COMMENT '学院ID',
+    `title` VARCHAR(20) NOT NULL COMMENT '职称',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`college_id`) REFERENCES `college`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师表';
+
+-- 课程表
+CREATE TABLE IF NOT EXISTS `course` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `course_code` VARCHAR(20) NOT NULL UNIQUE COMMENT '课程编码',
+    `name` VARCHAR(100) NOT NULL COMMENT '课程名称',
+    `teacher_id` BIGINT NOT NULL COMMENT '授课教师ID',
+    `college_id` BIGINT NOT NULL COMMENT '开课学院ID',
+    `credits` INT NOT NULL COMMENT '学分',
+    `max_students` INT NOT NULL COMMENT '最大选课人数',
+    `description` TEXT COMMENT '课程描述',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：0-停用，1-启用',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    FOREIGN KEY (`teacher_id`) REFERENCES `teacher`(`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`college_id`) REFERENCES `college`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程表';
+
+-- 课程先修关系表
+CREATE TABLE IF NOT EXISTS `course_prerequisite` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `course_id` BIGINT NOT NULL COMMENT '课程ID',
+    `prerequisite_id` BIGINT NOT NULL COMMENT '先修课程ID',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE KEY `uk_course_prerequisite` (`course_id`, `prerequisite_id`),
+    FOREIGN KEY (`course_id`) REFERENCES `course`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`prerequisite_id`) REFERENCES `course`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程先修关系表';
+
+-- 选课表
+CREATE TABLE IF NOT EXISTS `course_selection` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `course_id` BIGINT NOT NULL COMMENT '课程ID',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1-申请中，2-已中签，3-未中签',
+    `lottery_result` TINYINT NOT NULL DEFAULT 0 COMMENT '抽签结果：0-未抽签，1-中签，2-未中签',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE KEY `uk_student_course` (`student_id`, `course_id`),
+    FOREIGN KEY (`student_id`) REFERENCES `student`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`course_id`) REFERENCES `course`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='选课表';
+
+-- 成绩表
+CREATE TABLE IF NOT EXISTS `score` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `course_id` BIGINT NOT NULL COMMENT '课程ID',
+    `score` DECIMAL(5,2) NOT NULL COMMENT '成绩',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE KEY `uk_student_course_score` (`student_id`, `course_id`),
+    FOREIGN KEY (`student_id`) REFERENCES `student`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`course_id`) REFERENCES `course`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成绩表';
+
+-- 课件表
+CREATE TABLE IF NOT EXISTS `courseware` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `course_id` BIGINT NOT NULL COMMENT '课程ID',
+    `title` VARCHAR(200) NOT NULL COMMENT '课件标题',
+    `file_path` VARCHAR(500) NOT NULL COMMENT '文件路径',
+    `file_size` BIGINT NOT NULL COMMENT '文件大小（字节）',
+    `upload_time` DATETIME NOT NULL COMMENT '上传时间',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    FOREIGN KEY (`course_id`) REFERENCES `course`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课件表';
+
+-- 消息表
+CREATE TABLE IF NOT EXISTS `message` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `sender_id` BIGINT NOT NULL COMMENT '发送者ID',
+    `receiver_id` BIGINT NOT NULL COMMENT '接收者ID',
+    `course_id` BIGINT COMMENT '相关课程ID',
+    `content` TEXT NOT NULL COMMENT '消息内容',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1-已发送，2-已读',
+    `gmt_create` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `gmt_modified` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    FOREIGN KEY (`sender_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`receiver_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`course_id`) REFERENCES `course`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息表';
+
+-- ==================== 基础权限管理表数据 ====================
+
+-- 插入用户数据
+INSERT INTO `user` (`username`, `password`, `salt`, `gmt_create`, `gmt_modified`) 
+VALUES 
+    -- 系统管理员
+    ('sysadmin', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    -- 学院管理员
+    ('cs_admin', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('ee_admin', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    -- 教师
+    ('teacher_wang', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('teacher_li', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('teacher_zhang', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    -- 学生
+    ('2021001', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('2021002', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('2021003', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW()),
+    ('2021004', '$2a$10$THH81g1z6la5SZ9sxSZdauUEjvuPClkdaLwiVI97kxLL4i5oItKdW', '', NOW(), NOW());
+
+-- 插入角色数据
+INSERT INTO `role` (`name`, `gmt_create`, `gmt_modified`) 
+VALUES  
+    ('SYS_ADMIN', NOW(), NOW()),
+    ('COLLEGE_ADMIN', NOW(), NOW()),
+    ('TEACHER', NOW(), NOW()),
+    ('STUDENT', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 插入权限数据
+INSERT INTO `permission` (`name`, `gmt_create`, `gmt_modified`) 
+VALUES 
+    -- 系统管理员权限
+    ('student:manage', NOW(), NOW()),
+    ('teacher:manage', NOW(), NOW()),
+    ('course:manage', NOW(), NOW()),
+    ('score:manage', NOW(), NOW()),
+    ('statistics:view', NOW(), NOW()),
+    ('statistics:export', NOW(), NOW()),
+    
+    -- 学院管理员权限
+    ('college:student:manage', NOW(), NOW()),
+    ('college:teacher:manage', NOW(), NOW()),
+    ('college:course:manage', NOW(), NOW()),
+    ('college:score:manage', NOW(), NOW()),
+    ('college:lottery', NOW(), NOW()),
+    
+    -- 教师权限
+    ('course:edit', NOW(), NOW()),
+    ('course:upload', NOW(), NOW()),
+    ('score:input', NOW(), NOW()),
+    ('student:list:view', NOW(), NOW()),
+    ('message:send', NOW(), NOW()),
+    
+    -- 学生权限
+    ('course:select', NOW(), NOW()),
+    ('course:view', NOW(), NOW()),
+    ('score:view', NOW(), NOW()),
+    ('courseware:download', NOW(), NOW()),
+    ('message:reply', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 用户角色关联
+INSERT INTO `user_role` (`user_id`, `role_id`, `gmt_create`, `gmt_modified`)
+SELECT u.id, r.id, NOW(), NOW()
+FROM `user` u
+CROSS JOIN `role` r
+WHERE
+    (u.username = 'sysadmin' AND r.name = 'SYS_ADMIN') OR
+    (u.username IN ('cs_admin', 'ee_admin') AND r.name = 'COLLEGE_ADMIN') OR
+    (u.username IN ('teacher_wang', 'teacher_li', 'teacher_zhang') AND r.name = 'TEACHER') OR
+    (u.username IN ('2021001', '2021002', '2021003', '2021004') AND r.name = 'STUDENT')
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 角色权限关联
+INSERT INTO `role_permission` (`role_id`, `permission_id`, `gmt_create`, `gmt_modified`)
+SELECT r.id, p.id, NOW(), NOW()
+FROM `role` r
+CROSS JOIN `permission` p
+WHERE
+    (r.name = 'SYS_ADMIN' AND p.name IN (
+        'student:manage', 'teacher:manage', 'course:manage', 'score:manage', 
+        'statistics:view', 'statistics:export'
+    )) OR
+    (r.name = 'COLLEGE_ADMIN' AND p.name IN (
+        'college:student:manage', 'college:teacher:manage', 'college:course:manage', 
+        'college:score:manage', 'college:lottery'
+    )) OR
+    (r.name = 'TEACHER' AND p.name IN (
+        'course:edit', 'course:upload', 'score:input', 'student:list:view', 'message:send'
+    )) OR
+    (r.name = 'STUDENT' AND p.name IN (
+        'course:select', 'course:view', 'score:view', 'courseware:download', 'message:reply'
+    ))
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- ==================== 业务数据表 ====================
+
+-- 插入学院数据
+INSERT INTO `college` (`id`, `name`, `code`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (1, '计算机学院', 'CS', NOW(), NOW()),
+    (2, '电子工程学院', 'EE', NOW(), NOW())
+ON DUPLICATE KEY UPDATE 
+    `name` = VALUES(`name`),
+    `code` = VALUES(`code`),
+    `gmt_modified` = NOW();
+
+-- 插入学生数据
+INSERT INTO `student` (`user_id`, `student_no`, `name`, `college_id`, `grade`, `class`, `gmt_create`, `gmt_modified`)
+SELECT u.id, u.username, 
+    CASE u.username
+        WHEN '2021001' THEN '张三'
+        WHEN '2021002' THEN '李四'
+        WHEN '2021003' THEN '王五'
+        WHEN '2021004' THEN '赵六'
+    END,
+    CASE 
+        WHEN u.username IN ('2021001', '2021002') THEN 1
+        ELSE 2
+    END,
+    '2021', '1班', NOW(), NOW()
+FROM `user` u
+WHERE u.username IN ('2021001', '2021002', '2021003', '2021004')
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 插入教师数据
+INSERT INTO `teacher` (`user_id`, `teacher_no`, `name`, `college_id`, `title`, `gmt_create`, `gmt_modified`)
+SELECT u.id, 
+    CASE u.username
+        WHEN 'teacher_wang' THEN 'T001'
+        WHEN 'teacher_li' THEN 'T002'
+        WHEN 'teacher_zhang' THEN 'T003'
+    END,
+    CASE u.username
+        WHEN 'teacher_wang' THEN '王教授'
+        WHEN 'teacher_li' THEN '李副教授'
+        WHEN 'teacher_zhang' THEN '张讲师'
+    END,
+    CASE 
+        WHEN u.username IN ('teacher_wang', 'teacher_li') THEN 1
+        ELSE 2
+    END,
+    CASE u.username
+        WHEN 'teacher_wang' THEN '教授'
+        WHEN 'teacher_li' THEN '副教授'
+        WHEN 'teacher_zhang' THEN '讲师'
+    END,
+    NOW(), NOW()
+FROM `user` u
+WHERE u.username IN ('teacher_wang', 'teacher_li', 'teacher_zhang')
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 插入课程数据
+INSERT INTO `course` (`id`, `course_code`, `name`, `teacher_id`, `college_id`, `credits`, `max_students`, `description`, `status`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (1, 'CS101', '程序设计基础', 1, 1, 4, 50, 'C语言程序设计基础课程', 1, NOW(), NOW()),
+    (2, 'CS201', '数据结构', 1, 1, 4, 40, '数据结构与算法分析', 1, NOW(), NOW()),
+    (3, 'CS301', '数据库原理', 2, 1, 3, 45, '数据库系统原理与应用', 1, NOW(), NOW()),
+    (4, 'EE101', '电路原理', 3, 2, 4, 50, '电路分析基础', 1, NOW(), NOW()),
+    (5, 'CS401', '软件工程', 2, 1, 3, 35, '软件工程理论与实践', 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE 
+    `course_code` = VALUES(`course_code`),
+    `name` = VALUES(`name`),
+    `teacher_id` = VALUES(`teacher_id`),
+    `college_id` = VALUES(`college_id`),
+    `credits` = VALUES(`credits`),
+    `max_students` = VALUES(`max_students`),
+    `description` = VALUES(`description`),
+    `status` = VALUES(`status`),
+    `gmt_modified` = NOW();
+
+-- 插入课程先修关系
+INSERT INTO `course_prerequisite` (`course_id`, `prerequisite_id`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (2, 1, NOW(), NOW()),  -- 数据结构先修程序设计基础
+    (3, 2, NOW(), NOW()),  -- 数据库原理先修数据结构
+    (5, 3, NOW(), NOW())   -- 软件工程先修数据库原理
+ON DUPLICATE KEY UPDATE `gmt_modified` = NOW();
+
+-- 插入选课数据（部分学生已完成先修课程）
+INSERT INTO `course_selection` (`student_id`, `course_id`, `status`, `lottery_result`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (1, 1, 2, 1, NOW(), NOW()),  -- 张三已中签程序设计基础
+    (2, 1, 2, 1, NOW(), NOW()),  -- 李四已中签程序设计基础
+    (1, 2, 1, 0, NOW(), NOW()),  -- 张三申请数据结构（待抽签）
+    (3, 4, 2, 1, NOW(), NOW()),  -- 王五已中签电路原理
+    (4, 4, 1, 0, NOW(), NOW())   -- 赵六申请电路原理（待抽签）
+ON DUPLICATE KEY UPDATE 
+    `status` = VALUES(`status`),
+    `lottery_result` = VALUES(`lottery_result`),
+    `gmt_modified` = NOW();
+
+-- 插入成绩数据（已完成的课程）
+INSERT INTO `score` (`student_id`, `course_id`, `score`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (1, 1, 85, NOW(), NOW()),  -- 张三程序设计基础85分
+    (2, 1, 92, NOW(), NOW())   -- 李四程序设计基础92分
+ON DUPLICATE KEY UPDATE 
+    `score` = VALUES(`score`),
+    `gmt_modified` = NOW();
+
+-- 插入课件数据
+INSERT INTO `courseware` (`course_id`, `title`, `file_path`, `file_size`, `upload_time`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (1, '第1章 C语言概述.ppt', '/courseware/CS101/ch1.ppt', 2048000, NOW(), NOW(), NOW()),
+    (1, '第2章 数据类型.ppt', '/courseware/CS101/ch2.ppt', 1536000, NOW(), NOW(), NOW()),
+    (2, '数据结构导论.pdf', '/courseware/CS201/intro.pdf', 3072000, NOW(), NOW(), NOW())
+ON DUPLICATE KEY UPDATE 
+    `title` = VALUES(`title`),
+    `file_path` = VALUES(`file_path`),
+    `file_size` = VALUES(`file_size`),
+    `upload_time` = VALUES(`upload_time`),
+    `gmt_modified` = NOW();
+
+-- 插入消息数据
+INSERT INTO `message` (`sender_id`, `receiver_id`, `course_id`, `content`, `status`, `gmt_create`, `gmt_modified`)
+VALUES 
+    (7, 4, 1, '王老师，请问下周的作业是什么？', 1, NOW(), NOW()),  -- 学生发给老师
+    (4, 7, 1, '同学你好，下周作业是完成课本第3章习题。', 1, NOW(), NOW())  -- 老师回复学生
+ON DUPLICATE KEY UPDATE 
+    `content` = VALUES(`content`),
+    `status` = VALUES(`status`),
+    `gmt_modified` = NOW();
