@@ -12,19 +12,31 @@ public interface UserService {
 
     /**
      * 通过用户名获取账户
-     *
-     * @param username
-     * @return
      */
     Optional<User> getByUsername(@NonNull String username);
 
     /**
      * 创建用户账户
-     *
-     * @param userVO
-     * @return
      */
     boolean create(@NonNull UserVO userVO);
 
+    /**
+     * 根据ID获取用户
+     */
     User getById(@NonNull Long id);
+
+    /**
+     * 根据ID查找用户
+     */
+    Optional<User> findById(@NonNull Long id);
+
+    /**
+     * 保存用户
+     */
+    User save(@NonNull User user);
+
+    /**
+     * 删除用户
+     */
+    void deleteById(@NonNull Long id);
 }

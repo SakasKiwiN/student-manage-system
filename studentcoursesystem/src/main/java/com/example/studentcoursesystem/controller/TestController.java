@@ -17,7 +17,6 @@ import java.util.List;
 public class TestController {
     @Autowired
     private UserService userService;
-
     @GetMapping("/view/{id}")
     public JsonResult getUserInfo(@PathVariable("id") Long id) {
         User user = userService.getById(id);

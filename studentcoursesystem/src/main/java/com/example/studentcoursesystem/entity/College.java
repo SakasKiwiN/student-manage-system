@@ -2,7 +2,6 @@ package com.example.studentcoursesystem.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -11,21 +10,22 @@ import java.time.Instant;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
 @Entity
-@Table
-public class User {
+@Table(name = "college")
+public class College {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true, nullable = false)
-    private String username;
-    @Column(nullable = false)
-    private String password;
-    @Column(nullable = true)
-    private String salt;
-    @Column
-    private Instant gmtModified;
-    @Column
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(nullable = false, unique = true, length = 20)
+    private String code;
+
+    @Column(name = "gmt_create")
     private Instant gmtCreate;
+
+    @Column(name = "gmt_modified")
+    private Instant gmtModified;
 }

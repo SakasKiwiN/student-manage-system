@@ -30,6 +30,8 @@ public interface RolePermissionService {
      */
     List<Permission> getPermissionsByRoleId(@NonNull Long roleId);
 
+    boolean removePermissionFromRole(Long roleId, Long permissionId);
+
     /**
      * 批量获取多个角色对应的权限列表
      * @param roleIds 角色ID集合
