@@ -101,7 +101,7 @@ public class StudentController {
     }
 
     @Operation(summary = "更新学生信息")
-    @GetMapping("/{id}")
+    @PutMapping("/{id}")  // 改为 PutMapping
     @PreAuthorize("@permissionCheckService.canViewStudent(authentication.principal.id, #id)")
     public Result<Student> updateStudent(@PathVariable Long id, @Valid @RequestBody Student student) {
         try {
