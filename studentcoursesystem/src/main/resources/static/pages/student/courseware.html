@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课件下载 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">选课系统</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">课件下载</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">课件下载</h1>
+                <p class="page-description">下载您已选课程的学习资料和课件</p>
+            </div>
+
+            <!-- 课程筛选 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">选择课程</label>
+                                <select class="form-select" id="courseSelect">
+                                    <option value="">全部课程</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">文件类型</label>
+                                <select class="form-select" id="fileTypeFilter">
+                                    <option value="">全部类型</option>
+                                    <option value="ppt">PPT/PPTX</option>
+                                    <option value="pdf">PDF</option>
+                                    <option value="doc">DOC/DOCX</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-primary" id="filterBtn">筛选</button>
+                                    <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 课件列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>课件资料</h5>
+                    <div>
+                        <span class="text-muted" id="totalCount">共 0 个文件</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="coursewaresContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📁</div>
+                        <h5>暂无课件资料</h5>
+                        <p class="text-muted">您选择的课程还没有上传任何课件</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下载统计 -->
+            <div class="card" id="statsCard" style="display: none;">
+                <div class="card-header">
+                    <h5>下载统计</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="stat-value text-primary" id="totalFiles">0</div>
+                                <div class="stat-label">总文件数</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="stat-value text-success" id="totalSize">0 MB</div>
+                                <div class="stat-label">总大小</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="stat-value text-info" id="courseCount">0</div>
+                                <div class="stat-label">课程数</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="stat-value text-warning" id="recentFiles">0</div>
+                                <div class="stat-label">本周新增</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentStudent = null;
+    let myCourses = [];
+    let allCoursewares = [];
+    let filteredCoursewares = [];
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isStudent()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            // 获取当前学生信息
+            const studentResponse = await API.Student.getCurrent();
+            if (studentResponse.code === 200) {
+                currentStudent = studentResponse.data;
+            }
+
+            // 获取已选课程
+            await loadMyCourses();
+
+            // 加载所有课件
+            await loadAllCoursewares();
+
+            renderCourseSelect();
+            renderCoursewareList();
+            updateStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载我的课程
+    async function loadMyCourses() {
+        try {
+            const response = await API.CourseSelection.getMySelections();
+            if (response.code === 200) {
+                // 只获取已中签的课程
+                myCourses = response.data
+                    .filter(s => s.status === 2 && s.lotteryResult === 1)
+                    .map(s => s.course);
+            }
+        } catch (error) {
+            console.error('Load my courses error:', error);
+            throw error;
+        }
+    }
+
+    // 加载所有课件
+    async function loadAllCoursewares() {
+        try {
+            allCoursewares = [];
+
+            // 为每个课程加载课件
+            for (const course of myCourses) {
+                const response = await API.Courseware.getByCourse(course.id);
+                if (response.code === 200) {
+                    const coursewares = response.data.map(cw => ({
+                        ...cw,
+                        course: course
+                    }));
+                    allCoursewares.push(...coursewares);
+                }
+            }
+
+            filteredCoursewares = [...allCoursewares];
+        } catch (error) {
+            console.error('Load coursewares error:', error);
+            throw error;
+        }
+    }
+
+    // 渲染课程选择器
+    function renderCourseSelect() {
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = '<option value="">全部课程</option>';
+
+        myCourses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `${course.name} (${course.courseCode})`;
+            courseSelect.appendChild(option);
+        });
+    }
+
+    // 渲染课件列表
+    function renderCoursewareList() {
+        const container = document.getElementById('coursewaresContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        document.getElementById('totalCount').textContent = `共 ${filteredCoursewares.length} 个文件`;
+
+        if (filteredCoursewares.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        // 按课程分组显示
+        const coursewaresByCourse = groupBy(filteredCoursewares, 'course.id');
+
+        let html = '';
+        Object.entries(coursewaresByCourse).forEach(([courseId, coursewares]) => {
+            const course = coursewares[0].course;
+
+            html += `
+                    <div class="course-section mb-4">
+                        <div class="course-header">
+                            <h6 class="course-title">
+                                📚 ${course.name}
+                                <span class="badge bg-primary ms-2">${coursewares.length} 个文件</span>
+                            </h6>
+                            <small class="text-muted">
+                                课程编码：${course.courseCode} | 授课教师：${course.teacher?.name || '未分配'}
+                            </small>
+                        </div>
+                        <div class="courseware-grid">
+                `;
+
+            coursewares.forEach(courseware => {
+                const fileInfo = getFileInfo(courseware.title);
+                const sizeText = formatFileSize(courseware.fileSize);
+                const uploadDate = Utils.formatDate(courseware.uploadTime, 'YYYY-MM-DD');
+
+                html += `
+                        <div class="courseware-card">
+                            <div class="file-icon ${fileInfo.type}">
+                                ${fileInfo.icon}
+                            </div>
+                            <div class="file-info">
+                                <div class="file-title" title="${courseware.title}">
+                                    ${truncateText(courseware.title, 30)}
+                                </div>
+                                <div class="file-meta">
+                                    <small class="text-muted">
+                                        ${sizeText} | ${uploadDate}
+                                    </small>
+                                </div>
+                                <div class="file-actions mt-2">
+                                    <button class="btn btn-primary btn-sm" onclick="downloadCourseware(${courseware.id}, '${courseware.title}')">
+                                        📥 下载
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm ml-2" onclick="previewCourseware(${courseware.id})">
+                                        👁️ 预览
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                `;
+        });
+
+        container.innerHTML = html;
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        container.style.display = 'block';
+        document.getElementById('statsCard').style.display = 'block';
+    }
+
+    // 根据字段分组
+    function groupBy(array, key) {
+        return array.reduce((groups, item) => {
+            const value = key.split('.').reduce((obj, k) => obj[k], item);
+            groups[value] = groups[value] || [];
+            groups[value].push(item);
+            return groups;
+        }, {});
+    }
+
+    // 获取文件信息
+    function getFileInfo(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+
+        switch (ext) {
+            case 'pdf':
+                return { type: 'pdf', icon: '📄' };
+            case 'ppt':
+            case 'pptx':
+                return { type: 'ppt', icon: '📊' };
+            case 'doc':
+            case 'docx':
+                return { type: 'doc', icon: '📝' };
+            case 'xls':
+            case 'xlsx':
+                return { type: 'excel', icon: '📈' };
+            case 'txt':
+                return { type: 'txt', icon: '📃' };
+            case 'zip':
+            case 'rar':
+                return { type: 'archive', icon: '📦' };
+            case 'jpg':
+            case 'jpeg':
+            case 'png':
+            case 'gif':
+                return { type: 'image', icon: '🖼️' };
+            case 'mp4':
+            case 'avi':
+            case 'mov':
+                return { type: 'video', icon: '🎥' };
+            case 'mp3':
+            case 'wav':
+                return { type: 'audio', icon: '🎵' };
+            default:
+                return { type: 'other', icon: '📁' };
+        }
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // 截断文本
+    function truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const totalFiles = filteredCoursewares.length;
+        const totalBytes = filteredCoursewares.reduce((sum, cw) => sum + cw.fileSize, 0);
+        const totalSize = formatFileSize(totalBytes);
+        const courseCount = new Set(filteredCoursewares.map(cw => cw.course.id)).size;
+
+        // 计算本周新增文件
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const recentFiles = filteredCoursewares.filter(cw =>
+            new Date(cw.uploadTime) > oneWeekAgo
+        ).length;
+
+        document.getElementById('totalFiles').textContent = totalFiles;
+        document.getElementById('totalSize').textContent = totalSize;
+        document.getElementById('courseCount').textContent = courseCount;
+        document.getElementById('recentFiles').textContent = recentFiles;
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('coursewaresContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+        document.getElementById('statsCard').style.display = 'none';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 筛选功能
+        document.getElementById('filterBtn').addEventListener('click', performFilter);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行筛选
+    function performFilter() {
+        const courseId = document.getElementById('courseSelect').value;
+        const fileType = document.getElementById('fileTypeFilter').value;
+
+        filteredCoursewares = allCoursewares.filter(courseware => {
+            let match = true;
+
+            if (courseId) {
+                match = match && courseware.course.id == courseId;
+            }
+
+            if (fileType) {
+                const ext = courseware.title.split('.').pop().toLowerCase();
+                switch (fileType) {
+                    case 'ppt':
+                        match = match && ['ppt', 'pptx'].includes(ext);
+                        break;
+                    case 'pdf':
+                        match = match && ext === 'pdf';
+                        break;
+                    case 'doc':
+                        match = match && ['doc', 'docx'].includes(ext);
+                        break;
+                    case 'other':
+                        match = match && !['ppt', 'pptx', 'pdf', 'doc', 'docx'].includes(ext);
+                        break;
+                }
+            }
+
+            return match;
+        });
+
+        renderCoursewareList();
+        updateStatistics();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('courseSelect').value = '';
+        document.getElementById('fileTypeFilter').value = '';
+
+        filteredCoursewares = [...allCoursewares];
+        renderCoursewareList();
+        updateStatistics();
+    }
+
+    // 下载课件
+    async function downloadCourseware(coursewareId, filename) {
+        try {
+            Utils.showMessage('开始下载...', 'info');
+            await API.Courseware.download(coursewareId, filename);
+            Utils.showMessage('下载完成', 'success');
+        } catch (error) {
+            console.error('Download courseware error:', error);
+            Utils.showMessage('下载失败: ' + error.message, 'danger');
+        }
+    }
+
+    // 预览课件
+    function previewCourseware(coursewareId) {
+        // 这里可以实现文件预览功能
+        Utils.showMessage('预览功能开发中...', 'info');
+    }
+
+    // 导出函数到全局作用域
+    window.downloadCourseware = downloadCourseware;
+    window.previewCourseware = previewCourseware;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+            .course-section {
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                padding: 20px;
+                background: white;
+            }
+
+            .course-header {
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+
+            .course-title {
+                margin: 0;
+                color: #333;
+                font-weight: 600;
+            }
+
+            .courseware-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 15px;
+            }
+
+            .courseware-card {
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                padding: 15px;
+                background: #f8f9fa;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .courseware-card:hover {
+                border-color: #007bff;
+                box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+            }
+
+            .file-icon {
+                font-size: 32px;
+                min-width: 40px;
+                text-align: center;
+            }
+
+            .file-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .file-title {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 5px;
+                word-break: break-word;
+            }
+
+            .file-meta {
+                margin-bottom: 10px;
+            }
+
+            .file-actions .btn {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+
+            .file-icon.pdf { color: #dc3545; }
+            .file-icon.ppt { color: #fd7e14; }
+            .file-icon.doc { color: #0d6efd; }
+            .file-icon.excel { color: #198754; }
+            .file-icon.image { color: #6f42c1; }
+            .file-icon.video { color: #d63384; }
+            .file-icon.audio { color: #20c997; }
+            .file-icon.archive { color: #6c757d; }
+            .file-icon.other { color: #adb5bd; }
+
+            @media (max-width: 768px) {
+                .courseware-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .courseware-card {
+                    flex-direction: column;
+                    text-align: center;
+                }
+
+                .file-actions .btn {
+                    width: 100%;
+                    margin: 2px 0;
+                }
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消息中心 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">个人中心</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">消息中心</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">消息中心</h1>
+                <p class="page-description">管理您的消息通知和沟通记录</p>
+            </div>
+
+            <!-- 消息统计 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📧</div>
+                    <div class="stat-value" id="totalMessages">0</div>
+                    <div class="stat-label">总消息数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">🔴</div>
+                    <div class="stat-value" id="unreadMessages">0</div>
+                    <div class="stat-label">未读消息</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">📤</div>
+                    <div class="stat-value" id="sentMessages">0</div>
+                    <div class="stat-label">已发送</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">📥</div>
+                    <div class="stat-value" id="receivedMessages">0</div>
+                    <div class="stat-label">已接收</div>
+                </div>
+            </div>
+
+            <!-- 操作工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-primary active" id="receivedBtn">
+                                    收件箱 (<span id="receivedCount">0</span>)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="sentBtn">
+                                    发件箱 (<span id="sentCount">0</span>)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="unreadBtn">
+                                    未读 (<span id="unreadCount">0</span>)
+                                </button>
+                            </div>
+                            <button class="btn btn-outline-success ml-3" id="markAllReadBtn" disabled>
+                                全部标为已读
+                            </button>
+                        </div>
+                        <button class="btn btn-success" id="composeBtn">
+                            ✉️ 发送消息
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 id="listTitle">收件箱</h5>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-primary" id="refreshBtn">🔄 刷新</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="messagesContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📭</div>
+                        <h5>暂无消息</h5>
+                        <p class="text-muted">您的收件箱是空的</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 发送消息模态框 -->
+<div class="modal" id="composeModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title">发送消息</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="composeForm">
+                <div class="form-group">
+                    <label for="receiverSelect" class="form-label">接收者 *</label>
+                    <select class="form-select" id="receiverSelect" name="receiverId" required>
+                        <option value="">请选择接收者</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="courseSelect" class="form-label">相关课程</label>
+                    <select class="form-select" id="courseSelect" name="courseId">
+                        <option value="">无关联课程</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="messageContent" class="form-label">消息内容 *</label>
+                    <textarea class="form-control"
+                              id="messageContent"
+                              name="content"
+                              rows="5"
+                              required
+                              placeholder="请输入消息内容..."
+                              maxlength="1000"></textarea>
+                    <small class="text-muted">最多1000个字符</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="sendMessageBtn">发送</button>
+        </div>
+    </div>
+</div>
+
+<!-- 消息详情模态框 -->
+<div class="modal" id="messageDetailModal">
+    <div class="modal-dialog" style="max-width: 600px;">
+        <div class="modal-header">
+            <h5 class="modal-title">消息详情</h5>
+            <button type="button" class="modal-close" onclick="closeDetailModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="messageDetailContent">
+            <!-- 动态生成消息详情 -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDetailModal()">关闭</button>
+            <button type="button" class="btn btn-primary" id="replyBtn" style="display: none;">回复</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentUser = null;
+    let receivedMessages = [];
+    let sentMessages = [];
+    let unreadMessages = [];
+    let currentView = 'received';
+    let availableUsers = [];
+    let availableCourses = [];
+    let selectedMessage = null;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        currentUser = event.detail.user;
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    function initializePage() {
+        // 认证已在auth.js中处理
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            await Promise.all([
+                loadMessages(),
+                loadAvailableUsers(),
+                loadAvailableCourses()
+            ]);
+
+            updateStatistics();
+            renderMessageList();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载消息数据
+    async function loadMessages() {
+        try {
+            const [receivedResponse, sentResponse, unreadResponse] = await Promise.all([
+                API.Message.getReceived(),
+                API.Message.getSent(),
+                API.Message.getUnread()
+            ]);
+
+            if (receivedResponse.code === 200) {
+                receivedMessages = receivedResponse.data || [];
+            }
+            if (sentResponse.code === 200) {
+                sentMessages = sentResponse.data || [];
+            }
+            if (unreadResponse.code === 200) {
+                unreadMessages = unreadResponse.data || [];
+            }
+        } catch (error) {
+            console.error('Load messages error:', error);
+            throw error;
+        }
+    }
+
+    // 加载可用用户列表
+    async function loadAvailableUsers() {
+        try {
+            const role = AuthManager.getPrimaryRole();
+            availableUsers = [];
+
+            if (role === AuthManager.ROLES.STUDENT) {
+                // 学生可以给教师发消息
+                const response = await API.Teacher.getAll();
+                if (response.code === 200) {
+                    availableUsers = response.data.map(teacher => ({
+                        id: teacher.user.id,
+                        name: teacher.name,
+                        type: '教师'
+                    }));
+                }
+            } else if (role === AuthManager.ROLES.TEACHER) {
+                // 教师可以给学生发消息
+                const response = await API.Student.getAll();
+                if (response.code === 200) {
+                    availableUsers = response.data.map(student => ({
+                        id: student.user.id,
+                        name: student.name,
+                        type: '学生'
+                    }));
+                }
+            } else if (role === AuthManager.ROLES.COLLEGE_ADMIN) {
+                // 学院管理员可以给本学院教师和学生发消息
+                const [teacherResponse, studentResponse] = await Promise.all([
+                    API.Teacher.getByCollege(AuthManager.getUserCollegeId()),
+                    API.Student.getByCollege(AuthManager.getUserCollegeId())
+                ]);
+
+                if (teacherResponse.code === 200) {
+                    availableUsers.push(...teacherResponse.data.map(teacher => ({
+                        id: teacher.user.id,
+                        name: teacher.name,
+                        type: '教师'
+                    })));
+                }
+                if (studentResponse.code === 200) {
+                    availableUsers.push(...studentResponse.data.map(student => ({
+                        id: student.user.id,
+                        name: student.name,
+                        type: '学生'
+                    })));
+                }
+            }
+        } catch (error) {
+            console.warn('Load available users error:', error);
+        }
+    }
+
+    // 加载可用课程列表
+    async function loadAvailableCourses() {
+        try {
+            const role = AuthManager.getPrimaryRole();
+
+            if (role === AuthManager.ROLES.STUDENT) {
+                const response = await API.CourseSelection.getMySelections();
+                if (response.code === 200) {
+                    availableCourses = response.data
+                        .filter(s => s.status === 2 && s.lotteryResult === 1)
+                        .map(s => s.course);
+                }
+            } else if (role === AuthManager.ROLES.TEACHER) {
+                const teacherResponse = await API.Teacher.getCurrent();
+                if (teacherResponse.code === 200) {
+                    const courseResponse = await API.Course.getByTeacher(teacherResponse.data.id);
+                    if (courseResponse.code === 200) {
+                        availableCourses = courseResponse.data;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Load available courses error:', error);
+        }
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = receivedMessages.length + sentMessages.length;
+        const unread = unreadMessages.length;
+
+        document.getElementById('totalMessages').textContent = total;
+        document.getElementById('unreadMessages').textContent = unread;
+        document.getElementById('sentMessages').textContent = sentMessages.length;
+        document.getElementById('receivedMessages').textContent = receivedMessages.length;
+
+        document.getElementById('receivedCount').textContent = receivedMessages.length;
+        document.getElementById('sentCount').textContent = sentMessages.length;
+        document.getElementById('unreadCount').textContent = unread;
+
+        // 更新标记已读按钮状态
+        document.getElementById('markAllReadBtn').disabled = unread === 0;
+    }
+
+    // 渲染消息列表
+    function renderMessageList() {
+        const container = document.getElementById('messagesContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        let messages = [];
+        let title = '';
+
+        switch (currentView) {
+            case 'received':
+                messages = receivedMessages;
+                title = '收件箱';
+                break;
+            case 'sent':
+                messages = sentMessages;
+                title = '发件箱';
+                break;
+            case 'unread':
+                messages = unreadMessages;
+                title = '未读消息';
+                break;
+        }
+
+        document.getElementById('listTitle').textContent = title;
+
+        if (messages.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        let html = '<div class="message-list">';
+        messages.forEach(message => {
+            const isUnread = message.status === 1 && currentView !== 'sent';
+            const otherUser = currentView === 'sent' ? message.receiver : message.sender;
+
+            html += `
+                    <div class="message-item ${isUnread ? 'unread' : ''}" data-message-id="${message.id}">
+                        <div class="message-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="message-avatar">
+                                        ${otherUser.username.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div class="message-info">
+                                        <div class="message-user">
+                                            ${getDisplayName(otherUser)}
+                                            ${currentView === 'sent' ? '(收件人)' : '(发件人)'}
+                                        </div>
+                                        <div class="message-time">
+                                            ${Utils.formatDate(message.gmtCreate, 'YYYY-MM-DD HH:mm')}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="message-actions">
+                                    ${isUnread ? '<span class="badge bg-danger">未读</span>' : ''}
+                                    ${message.course ? `<span class="badge bg-info">${message.course.name}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            <p>${truncateText(message.content, 100)}</p>
+                        </div>
+                        <div class="message-footer">
+                            <button class="btn btn-sm btn-outline-primary" onclick="showMessageDetail(${message.id})">
+                                查看详情
+                            </button>
+                            ${currentView !== 'sent' && isUnread ?
+                `<button class="btn btn-sm btn-outline-success ml-2" onclick="markAsRead(${message.id})">标记已读</button>` : ''
+            }
+                        </div>
+                    </div>
+                `;
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        container.style.display = 'block';
+    }
+
+    // 获取用户显示名称
+    function getDisplayName(user) {
+        // 尝试从用户对象获取实际姓名
+        if (user.student) return user.student.name;
+        if (user.teacher) return user.teacher.name;
+        return user.username;
+    }
+
+    // 截断文本
+    function truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('messagesContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 视图切换
+        document.getElementById('receivedBtn').addEventListener('click', () => switchView('received'));
+        document.getElementById('sentBtn').addEventListener('click', () => switchView('sent'));
+        document.getElementById('unreadBtn').addEventListener('click', () => switchView('unread'));
+
+        // 刷新按钮
+        document.getElementById('refreshBtn').addEventListener('click', refreshMessages);
+
+        // 全部标为已读
+        document.getElementById('markAllReadBtn').addEventListener('click', markAllAsRead);
+
+        // 发送消息
+        document.getElementById('composeBtn').addEventListener('click', openComposeModal);
+        document.getElementById('sendMessageBtn').addEventListener('click', sendMessage);
+
+        // 回复按钮
+        document.getElementById('replyBtn').addEventListener('click', replyMessage);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 切换视图
+    function switchView(view) {
+        currentView = view;
+
+        // 更新按钮状态
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        });
+
+        if (view === 'received') {
+            document.getElementById('receivedBtn').classList.remove('btn-outline-primary');
+            document.getElementById('receivedBtn').classList.add('btn-primary', 'active');
+        } else if (view === 'sent') {
+            document.getElementById('sentBtn').classList.remove('btn-outline-primary');
+            document.getElementById('sentBtn').classList.add('btn-primary', 'active');
+        } else if (view === 'unread') {
+            document.getElementById('unreadBtn').classList.remove('btn-outline-primary');
+            document.getElementById('unreadBtn').classList.add('btn-primary', 'active');
+        }
+
+        renderMessageList();
+    }
+
+    // 刷新消息
+    async function refreshMessages() {
+        try {
+            await loadMessages();
+            updateStatistics();
+            renderMessageList();
+            Utils.showMessage('消息已刷新', 'success');
+        } catch (error) {
+            console.error('Refresh messages error:', error);
+            Utils.showMessage('刷新失败', 'danger');
+        }
+    }
+
+    // 全部标为已读
+    async function markAllAsRead() {
+        try {
+            await API.Message.markAllAsRead();
+            Utils.showMessage('所有消息已标记为已读', 'success');
+            await refreshMessages();
+        } catch (error) {
+            console.error('Mark all as read error:', error);
+            Utils.showMessage('操作失败', 'danger');
+        }
+    }
+
+    // 标记单条消息为已读
+    async function markAsRead(messageId) {
+        try {
+            await API.Message.markAsRead(messageId);
+            await refreshMessages();
+        } catch (error) {
+            console.error('Mark as read error:', error);
+            Utils.showMessage('标记失败', 'danger');
+        }
+    }
+
+    // 打开发送消息模态框
+    function openComposeModal() {
+        // 填充接收者选项
+        const receiverSelect = document.getElementById('receiverSelect');
+        receiverSelect.innerHTML = '<option value="">请选择接收者</option>';
+
+        availableUsers.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.name} (${user.type})`;
+            receiverSelect.appendChild(option);
+        });
+
+        // 填充课程选项
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = '<option value="">无关联课程</option>';
+
+        availableCourses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = course.name;
+            courseSelect.appendChild(option);
+        });
+
+        Utils.showModal(document.getElementById('composeModal'));
+    }
+
+    // 发送消息
+    async function sendMessage() {
+        const form = document.getElementById('composeForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        const formData = FormUtils.serialize(form);
+
+        try {
+            const sendBtn = document.getElementById('sendMessageBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '发送中...';
+
+            const response = await API.Message.send(
+                parseInt(formData.receiverId),
+                formData.content.trim(),
+                formData.courseId ? parseInt(formData.courseId) : null
+            );
+
+            if (response.code === 200) {
+                Utils.showMessage('消息发送成功', 'success');
+                closeModal();
+                await refreshMessages();
+            } else {
+                Utils.showMessage('发送失败: ' + response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Send message error:', error);
+            Utils.showMessage('发送失败: ' + error.message, 'danger');
+        } finally {
+            const sendBtn = document.getElementById('sendMessageBtn');
+            sendBtn.disabled = false;
+            sendBtn.textContent = '发送';
+        }
+    }
+
+    // 显示消息详情
+    function showMessageDetail(messageId) {
+        let message = null;
+
+        // 在所有消息中查找
+        message = [...receivedMessages, ...sentMessages].find(m => m.id === messageId);
+
+        if (!message) return;
+
+        selectedMessage = message;
+        const isReceived = currentView !== 'sent';
+        const otherUser = isReceived ? message.sender : message.receiver;
+
+        document.getElementById('messageDetailContent').innerHTML = `
+                <div class="message-detail">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>${isReceived ? '发件人' : '收件人'}：</strong>
+                            ${getDisplayName(otherUser)}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>时间：</strong>
+                            ${Utils.formatDate(message.gmtCreate, 'YYYY-MM-DD HH:mm:ss')}
+                        </div>
+                    </div>
+                    ${message.course ? `
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <strong>相关课程：</strong>
+                                <span class="badge bg-info">${message.course.name}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>消息内容：</strong>
+                            <div class="message-content-detail mt-2 p-3" style="background: #f8f9fa; border-radius: 4px;">
+                                ${message.content}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        // 显示回复按钮（只有收到的消息才能回复）
+        const replyBtn = document.getElementById('replyBtn');
+        if (isReceived) {
+            replyBtn.style.display = 'inline-block';
+        } else {
+            replyBtn.style.display = 'none';
+        }
+
+        Utils.showModal(document.getElementById('messageDetailModal'));
+
+        // 如果是未读消息，标记为已读
+        if (message.status === 1 && isReceived) {
+            markAsRead(messageId);
+        }
+    }
+
+    // 回复消息
+    function replyMessage() {
+        if (!selectedMessage) return;
+
+        closeDetailModal();
+
+        // 打开发送消息模态框并预填信息
+        openComposeModal();
+
+        // 设置接收者
+        document.getElementById('receiverSelect').value = selectedMessage.sender.id;
+
+        // 设置相关课程
+        if (selectedMessage.course) {
+            document.getElementById('courseSelect').value = selectedMessage.course.id;
+        }
+
+        // 预填回复内容
+        const originalContent = selectedMessage.content.split('\n').map(line => '> ' + line).join('\n');
+        document.getElementById('messageContent').value = `\n\n--- 原始消息 ---\n${originalContent}`;
+
+        // 将光标定位到开头
+        document.getElementById('messageContent').setSelectionRange(0, 0);
+        document.getElementById('messageContent').focus();
+    }
+
+    // 关闭发送模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('composeForm').reset();
+    }
+
+    // 关闭详情模态框
+    function closeDetailModal() {
+        Utils.closeModal();
+        selectedMessage = null;
+    }
+
+    // 导出函数到全局作用域
+    window.showMessageDetail = showMessageDetail;
+    window.markAsRead = markAsRead;
+    window.closeModal = closeModal;
+    window.closeDetailModal = closeDetailModal;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+            .message-item {
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 15px;
+                background: white;
+                transition: all 0.3s ease;
+            }
+
+            .message-item:hover {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .message-item.unread {
+                border-left: 4px solid #007bff;
+                background: #f8f9ff;
+            }
+
+            .message-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 600;
+                margin-right: 12px;
+            }
+
+            .message-user {
+                font-weight: 600;
+                color: #333;
+            }
+
+            .message-time {
+                font-size: 12px;
+                color: #666;
+            }
+
+            .message-content p {
+                margin: 8px 0;
+                color: #555;
+                line-height: 1.5;
+            }
+
+            .message-footer {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+            }
+
+            .btn-group .btn {
+                border-radius: 0;
+            }
+
+            .btn-group .btn:first-child {
+                border-top-left-radius: 4px;
+                border-bottom-left-radius: 4px;
+            }
+
+            .btn-group .btn:last-child {
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+            }
+
+            .message-content-detail {
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

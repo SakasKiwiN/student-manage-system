@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽签管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">学院管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">抽签管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">抽签管理</h1>
+                <p class="page-description">执行课程选课抽签，管理选课结果</p>
+            </div>
+
+            <!-- 抽签状态概览 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📚</div>
+                    <div class="stat-value" id="totalCourses">0</div>
+                    <div class="stat-label">总课程数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">⏳</div>
+                    <div class="stat-value" id="pendingCourses">0</div>
+                    <div class="stat-label">待抽签课程</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="completedCourses">0</div>
+                    <div class="stat-label">已完成抽签</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">👥</div>
+                    <div class="stat-value" id="totalSelections">0</div>
+                    <div class="stat-label">总选课申请</div>
+                </div>
+            </div>
+
+            <!-- 批量操作 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>批量抽签操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h6><strong>⚠️ 重要提醒：</strong></h6>
+                        <ul class="mb-0" style="margin-left: 20px;">
+                            <li>抽签操作不可撤销，请在确认所有选课申请完成后执行</li>
+                            <li>抽签将根据课程最大人数随机分配名额</li>
+                            <li>建议先对单个课程进行测试抽签</li>
+                            <li>批量抽签将对本学院所有待抽签课程执行</li>
+                        </ul>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>全学院批量抽签</h6>
+                            <p class="text-muted mb-0">对本学院所有待抽签课程执行批量抽签</p>
+                        </div>
+                        <button class="btn btn-danger btn-lg" id="batchLotteryBtn">
+                            🎲 开始批量抽签
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 课程抽签列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>课程抽签状态</h5>
+                    <div>
+                        <button class="btn btn-secondary" id="refreshBtn">🔄 刷新</button>
+                        <select class="form-select ml-2" id="statusFilter" style="width: 150px; display: inline-block;">
+                            <option value="">全部状态</option>
+                            <option value="pending">待抽签</option>
+                            <option value="completed">已完成</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="coursesContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🎲</div>
+                        <h5>暂无课程数据</h5>
+                        <p class="text-muted">本学院还没有开设课程</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 抽签结果模态框 -->
+<div class="modal" id="lotteryResultModal">
+    <div class="modal-dialog" style="max-width: 800px;">
+        <div class="modal-header">
+            <h5 class="modal-title">抽签结果</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="lotteryResultContent">
+            <!-- 动态生成抽签结果 -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
+            <button type="button" class="btn btn-primary" id="exportResultBtn">导出结果</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentCollege = null;
+    let courses = [];
+    let filteredCourses = [];
+    let courseSelections = {};
+    let lotteryResults = {};
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isCollegeAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            const collegeId = AuthManager.getUserCollegeId();
+            if (!collegeId) {
+                Utils.showMessage('无法获取学院信息', 'danger');
+                return;
+            }
+
+            currentCollege = collegeId;
+
+            await Promise.all([
+                loadCourses(),
+                loadSelectionStatistics()
+            ]);
+
+            renderCourseList();
+            updateStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载课程列表
+    async function loadCourses() {
+        try {
+            const response = await API.Course.getByCollege(currentCollege);
+            if (response.code === 200) {
+                courses = response.data || [];
+                filteredCourses = [...courses];
+
+                // 为每个课程加载选课数据
+                for (const course of courses) {
+                    await loadCourseSelections(course.id);
+                }
+            }
+        } catch (error) {
+            console.error('Load courses error:', error);
+            throw error;
+        }
+    }
+
+    // 加载课程选课数据
+    async function loadCourseSelections(courseId) {
+        try {
+            const response = await API.CourseSelection.getCourseSelections(courseId);
+            if (response.code === 200) {
+                courseSelections[courseId] = response.data || [];
+            }
+        } catch (error) {
+            console.warn(`Load selections for course ${courseId} error:`, error);
+            courseSelections[courseId] = [];
+        }
+    }
+
+    // 加载选课统计
+    async function loadSelectionStatistics() {
+        try {
+            const response = await API.CourseSelection.getStatistics();
+            if (response.code === 200) {
+                // 统计数据已在courseSelections中
+            }
+        } catch (error) {
+            console.warn('Load selection statistics error:', error);
+        }
+    }
+
+    // 渲染课程列表
+    function renderCourseList() {
+        const container = document.getElementById('coursesContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredCourses.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        let html = '<div class="row">';
+
+        filteredCourses.forEach(course => {
+            const selections = courseSelections[course.id] || [];
+            const totalSelections = selections.length;
+            const pendingCount = selections.filter(s => s.status === 1).length;
+            const selectedCount = selections.filter(s => s.status === 2 && s.lotteryResult === 1).length;
+            const rejectedCount = selections.filter(s => s.status === 2 && s.lotteryResult !== 1).length;
+
+            const lotteryStatus = getLotteryStatus(course, selections);
+            const canLottery = pendingCount > 0 && course.status === 1;
+
+            html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 ${lotteryStatus.borderClass}">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">${course.name}</h6>
+                                <span class="badge ${lotteryStatus.badgeClass}">${lotteryStatus.text}</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center mb-3">
+                                    <div class="col-3">
+                                        <div class="stat-value text-primary">${totalSelections}</div>
+                                        <div class="stat-label">申请人数</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-value text-warning">${pendingCount}</div>
+                                        <div class="stat-label">待抽签</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-value text-success">${selectedCount}</div>
+                                        <div class="stat-label">已中签</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="stat-value text-danger">${rejectedCount}</div>
+                                        <div class="stat-label">未中签</div>
+                                    </div>
+                                </div>
+
+                                <div class="course-info">
+                                    <p class="mb-1"><strong>课程编码：</strong>${course.courseCode}</p>
+                                    <p class="mb-1"><strong>授课教师：</strong>${course.teacher?.name || '未分配'}</p>
+                                    <p class="mb-1"><strong>最大人数：</strong>${course.maxStudents}</p>
+                                    <p class="mb-3"><strong>超额情况：</strong>
+                                        ${totalSelections > course.maxStudents ?
+                `<span class="text-danger">超额${totalSelections - course.maxStudents}人</span>` :
+                `<span class="text-success">未超额</span>`
+            }
+                                    </p>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <button class="btn btn-outline-info btn-sm" onclick="viewCourseDetail(${course.id})">
+                                        查看详情
+                                    </button>
+                                    ${canLottery ?
+                `<button class="btn btn-primary btn-sm" onclick="performCourseLottery(${course.id})">
+                                            🎲 抽签
+                                        </button>` :
+                `<button class="btn btn-secondary btn-sm" disabled>
+                                            ${pendingCount === 0 ? '无待抽签' : '已完成'}
+                                        </button>`
+            }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        container.style.display = 'block';
+    }
+
+    // 获取抽签状态
+    function getLotteryStatus(course, selections) {
+        const pendingCount = selections.filter(s => s.status === 1).length;
+        const hasCompleted = selections.some(s => s.status === 2);
+
+        if (course.status !== 1) {
+            return { text: '课程停用', badgeClass: 'bg-secondary', borderClass: '' };
+        } else if (pendingCount === 0 && !hasCompleted) {
+            return { text: '无选课申请', badgeClass: 'bg-secondary', borderClass: '' };
+        } else if (pendingCount > 0) {
+            return { text: '待抽签', badgeClass: 'bg-warning', borderClass: 'border-warning' };
+        } else {
+            return { text: '已完成抽签', badgeClass: 'bg-success', borderClass: 'border-success' };
+        }
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = courses.length;
+        let pending = 0;
+        let completed = 0;
+        let totalSelections = 0;
+
+        courses.forEach(course => {
+            const selections = courseSelections[course.id] || [];
+            const pendingCount = selections.filter(s => s.status === 1).length;
+            const hasCompleted = selections.some(s => s.status === 2);
+
+            totalSelections += selections.length;
+
+            if (pendingCount > 0) {
+                pending++;
+            } else if (hasCompleted) {
+                completed++;
+            }
+        });
+
+        document.getElementById('totalCourses').textContent = total;
+        document.getElementById('pendingCourses').textContent = pending;
+        document.getElementById('completedCourses').textContent = completed;
+        document.getElementById('totalSelections').textContent = totalSelections;
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('coursesContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 批量抽签
+        document.getElementById('batchLotteryBtn').addEventListener('click', performBatchLottery);
+
+        // 刷新
+        document.getElementById('refreshBtn').addEventListener('click', refreshData);
+
+        // 状态筛选
+        document.getElementById('statusFilter').addEventListener('change', filterByStatus);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行单个课程抽签
+    async function performCourseLottery(courseId) {
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return;
+
+        const selections = courseSelections[courseId] || [];
+        const pendingCount = selections.filter(s => s.status === 1).length;
+
+        Utils.confirm(
+            `确定对课程"${course.name}"执行抽签吗？\n\n` +
+            `申请人数：${selections.length}\n` +
+            `最大人数：${course.maxStudents}\n` +
+            `待抽签人数：${pendingCount}\n\n` +
+            `⚠️ 抽签操作不可撤销！`,
+            async () => {
+                try {
+                    Utils.showMessage('正在执行抽签...', 'info');
+
+                    const response = await API.CourseSelection.performLottery(courseId);
+                    if (response.code === 200) {
+                        Utils.showMessage('抽签完成！', 'success');
+                        await refreshData();
+
+                        // 显示抽签结果
+                        await showLotteryResult(courseId);
+                    } else {
+                        Utils.showMessage('抽签失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Lottery error:', error);
+                    Utils.showMessage('抽签失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 执行批量抽签
+    async function performBatchLottery() {
+        const pendingCourses = courses.filter(course => {
+            const selections = courseSelections[course.id] || [];
+            const pendingCount = selections.filter(s => s.status === 1).length;
+            return pendingCount > 0 && course.status === 1;
+        });
+
+        if (pendingCourses.length === 0) {
+            Utils.showMessage('没有需要抽签的课程', 'warning');
+            return;
+        }
+
+        Utils.confirm(
+            `确定对本学院所有课程执行批量抽签吗？\n\n` +
+            `待抽签课程数：${pendingCourses.length}\n` +
+            `课程列表：${pendingCourses.map(c => c.name).join('、')}\n\n` +
+            `⚠️ 批量抽签操作不可撤销！`,
+            async () => {
+                try {
+                    const batchBtn = document.getElementById('batchLotteryBtn');
+                    batchBtn.disabled = true;
+                    batchBtn.textContent = '抽签中...';
+
+                    Utils.showMessage('正在执行批量抽签...', 'info');
+
+                    const response = await API.CourseSelection.performCollegeLottery(currentCollege);
+                    if (response.code === 200) {
+                        Utils.showMessage('批量抽签完成！', 'success');
+                        await refreshData();
+                    } else {
+                        Utils.showMessage('批量抽签失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Batch lottery error:', error);
+                    Utils.showMessage('批量抽签失败: ' + error.message, 'danger');
+                } finally {
+                    const batchBtn = document.getElementById('batchLotteryBtn');
+                    batchBtn.disabled = false;
+                    batchBtn.textContent = '🎲 开始批量抽签';
+                }
+            }
+        );
+    }
+
+    // 查看课程详情
+    function viewCourseDetail(courseId) {
+        const course = courses.find(c => c.id === courseId);
+        const selections = courseSelections[courseId] || [];
+
+        if (!course) return;
+
+        const selectedStudents = selections.filter(s => s.status === 2 && s.lotteryResult === 1);
+        const rejectedStudents = selections.filter(s => s.status === 2 && s.lotteryResult !== 1);
+        const pendingStudents = selections.filter(s => s.status === 1);
+
+        const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>课程信息</h6>
+                        <p><strong>课程名称：</strong>${course.name}</p>
+                        <p><strong>课程编码：</strong>${course.courseCode}</p>
+                        <p><strong>授课教师：</strong>${course.teacher?.name || '未分配'}</p>
+                        <p><strong>最大人数：</strong>${course.maxStudents}</p>
+                        <p><strong>学分：</strong>${course.credits}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>选课统计</h6>
+                        <p><strong>总申请人数：</strong>${selections.length}</p>
+                        <p><strong>已中签：</strong><span class="text-success">${selectedStudents.length}</span></p>
+                        <p><strong>未中签：</strong><span class="text-danger">${rejectedStudents.length}</span></p>
+                        <p><strong>待抽签：</strong><span class="text-warning">${pendingStudents.length}</span></p>
+                        <p><strong>中签率：</strong>${selections.length > 0 ? ((selectedStudents.length / selections.length) * 100).toFixed(1) : 0}%</p>
+                    </div>
+                </div>
+
+                ${selectedStudents.length > 0 ? `
+                <div class="mt-3">
+                    <h6>中签学生名单</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>学号</th><th>姓名</th><th>年级</th><th>班级</th></tr>
+                            </thead>
+                            <tbody>
+                                ${selectedStudents.map(s => `
+                                    <tr>
+                                        <td>${s.student.studentNo}</td>
+                                        <td>${s.student.name}</td>
+                                        <td>${s.student.grade}</td>
+                                        <td>${s.student.class}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>` : ''}
+            `;
+
+        const modal = Utils.createModal(`${course.name} - 详细信息`, content, [
+            { text: '关闭', class: 'btn-secondary', onclick: 'Utils.closeModal()' }
+        ]);
+        Utils.showModal(modal);
+    }
+
+    // 显示抽签结果
+    async function showLotteryResult(courseId) {
+        try {
+            // 重新加载最新的选课数据
+            await loadCourseSelections(courseId);
+
+            const course = courses.find(c => c.id === courseId);
+            const selections = courseSelections[courseId] || [];
+            const selectedStudents = selections.filter(s => s.status === 2 && s.lotteryResult === 1);
+            const rejectedStudents = selections.filter(s => s.status === 2 && s.lotteryResult !== 1);
+
+            lotteryResults[courseId] = { course, selectedStudents, rejectedStudents };
+
+            const content = `
+                    <div class="text-center mb-4">
+                        <h4>🎉 ${course.name} 抽签结果</h4>
+                        <p class="text-muted">抽签已完成，以下是最终结果</p>
+                    </div>
+
+                    <div class="row text-center mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-value text-success">${selectedStudents.length}</div>
+                            <div class="stat-label">中签人数</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-value text-danger">${rejectedStudents.length}</div>
+                            <div class="stat-label">未中签人数</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-value text-info">${((selectedStudents.length / (selectedStudents.length + rejectedStudents.length)) * 100).toFixed(1)}%</div>
+                            <div class="stat-label">中签率</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">✅ 中签学生</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr><th>学号</th><th>姓名</th><th>班级</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        ${selectedStudents.map(s => `
+                                            <tr>
+                                                <td>${s.student.studentNo}</td>
+                                                <td>${s.student.name}</td>
+                                                <td>${s.student.class}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">❌ 未中签学生</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr><th>学号</th><th>姓名</th><th>班级</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rejectedStudents.map(s => `
+                                            <tr>
+                                                <td>${s.student.studentNo}</td>
+                                                <td>${s.student.name}</td>
+                                                <td>${s.student.class}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+            document.getElementById('lotteryResultContent').innerHTML = content;
+            Utils.showModal(document.getElementById('lotteryResultModal'));
+        } catch (error) {
+            console.error('Show lottery result error:', error);
+        }
+    }
+
+    // 状态筛选
+    function filterByStatus() {
+        const status = document.getElementById('statusFilter').value;
+
+        if (!status) {
+            filteredCourses = [...courses];
+        } else {
+            filteredCourses = courses.filter(course => {
+                const selections = courseSelections[course.id] || [];
+                const pendingCount = selections.filter(s => s.status === 1).length;
+                const hasCompleted = selections.some(s => s.status === 2);
+
+                if (status === 'pending') {
+                    return pendingCount > 0 && course.status === 1;
+                } else if (status === 'completed') {
+                    return hasCompleted && pendingCount === 0;
+                }
+                return true;
+            });
+        }
+
+        renderCourseList();
+    }
+
+    // 刷新数据
+    async function refreshData() {
+        try {
+            Utils.showMessage('正在刷新数据...', 'info');
+            await loadPageData();
+            Utils.showMessage('数据刷新完成', 'success');
+        } catch (error) {
+            console.error('Refresh data error:', error);
+            Utils.showMessage('刷新失败', 'danger');
+        }
+    }
+
+    // 导出抽签结果
+    function exportLotteryResult() {
+        const results = Object.values(lotteryResults);
+        if (results.length === 0) {
+            Utils.showMessage('没有抽签结果可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '课程编码,课程名称,学号,姓名,年级,班级,抽签结果\n';
+
+        results.forEach(result => {
+            const { course, selectedStudents, rejectedStudents } = result;
+
+            selectedStudents.forEach(s => {
+                csvContent += `${course.courseCode},${course.name},${s.student.studentNo},${s.student.name},${s.student.grade},${s.student.class},中签\n`;
+            });
+
+            rejectedStudents.forEach(s => {
+                csvContent += `${course.courseCode},${course.name},${s.student.studentNo},${s.student.name},${s.student.grade},${s.student.class},未中签\n`;
+            });
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `抽签结果_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('抽签结果导出成功', 'success');
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+    }
+
+    // 绑定导出按钮事件
+    document.getElementById('exportResultBtn').addEventListener('click', exportLotteryResult);
+
+    // 导出函数到全局作用域
+    window.viewCourseDetail = viewCourseDetail;
+    window.performCourseLottery = performCourseLottery;
+    window.closeModal = closeModal;
+</script>
+</body>
+</html>

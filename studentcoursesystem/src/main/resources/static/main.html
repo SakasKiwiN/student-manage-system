@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生选课系统 - 主页</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="/main.html" class="logo">
+                <div class="logo-icon">🎓</div>
+                <span class="logo-text">选课系统</span>
+            </a>
+        </div>
+
+        <div class="user-info">
+            <div class="user-avatar" id="userAvatar">👤</div>
+            <div class="user-name" id="userName">用户名</div>
+            <div class="user-role" id="userRole">角色</div>
+        </div>
+
+        <nav class="nav-menu" id="navMenu">
+            <!-- 动态生成菜单 -->
+        </nav>
+    </aside>
+
+    <!-- 主内容区域 -->
+    <main class="main-content">
+        <!-- 顶部导航栏 -->
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb" id="breadcrumb">
+                    <span class="breadcrumb-item">主页</span>
+                </nav>
+            </div>
+
+            <div class="navbar-right">
+                <button class="notification-bell" id="notificationBell">
+                    🔔
+                    <span class="notification-badge d-none" id="notificationBadge">0</span>
+                </button>
+
+                <div class="user-dropdown" id="userDropdown">
+                    <button class="user-dropdown-toggle" id="userDropdownToggle">
+                        <div class="user-dropdown-avatar" id="topUserAvatar">👤</div>
+                        <span class="user-dropdown-name" id="topUserName">用户名</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="user-dropdown-menu" id="userDropdownMenu">
+                        <a href="/pages/common/profile.html" class="dropdown-item">个人信息</a>
+                        <a href="/pages/common/change-password.html" class="dropdown-item">修改密码</a>
+                        <a href="/pages/common/messages.html" class="dropdown-item">消息中心</a>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item" id="logoutBtn">退出登录</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 页面内容 -->
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title" id="pageTitle">欢迎使用学生选课系统</h1>
+                <p class="page-description" id="pageDescription">请从左侧菜单选择功能</p>
+            </div>
+
+            <!-- 快捷操作 -->
+            <div class="quick-actions" id="quickActions">
+                <!-- 动态生成快捷操作 -->
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-grid" id="statsGrid">
+                <!-- 动态生成统计信息 -->
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 侧边栏遮罩层（移动端） -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- JavaScript -->
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentUser = null;
+    let isMobile = window.innerWidth <= 768;
+
+    // 菜单配置
+    const MenuConfig = {
+        getMenusByRole(role) {
+            const menuConfigs = {
+                [AuthManager.ROLES.SYS_ADMIN]: [
+                    {
+                        title: '系统管理',
+                        icon: '⚙️',
+                        children: [
+                            { title: '学院管理', url: '/pages/admin/college-manage.html' },
+                            { title: '教师管理', url: '/pages/admin/teacher-manage.html' },
+                            { title: '学生管理', url: '/pages/admin/student-manage.html' },
+                            { title: '课程管理', url: '/pages/admin/course-manage.html' },
+                            { title: '选课管理', url: '/pages/admin/selection-manage.html' }, // 新增
+                            { title: '成绩管理', url: '/pages/admin/score-manage.html' },     // 新增
+                            { title: '系统统计', url: '/pages/admin/statistics.html' }
+                        ]
+                    },
+                    {
+                        title: '个人中心',
+                        icon: '👤',
+                        children: [
+                            { title: '个人信息', url: '/pages/common/profile.html' },
+                            { title: '修改密码', url: '/pages/common/change-password.html' },
+                            { title: '消息中心', url: '/pages/common/messages.html' }
+                        ]
+                    }
+                ],
+                [AuthManager.ROLES.COLLEGE_ADMIN]: [
+                    {
+                        title: '学院管理',
+                        icon: '🏫',
+                        children: [
+                            { title: '课程管理', url: '/pages/college/course-manage.html' },
+                            { title: '学生列表', url: '/pages/college/student-list.html' },
+                            { title: '抽签管理', url: '/pages/college/lottery.html' }
+                        ]
+                    },
+                    {
+                        title: '个人中心',
+                        icon: '👤',
+                        children: [
+                            { title: '个人信息', url: '/pages/common/profile.html' },
+                            { title: '修改密码', url: '/pages/common/change-password.html' },
+                            { title: '消息中心', url: '/pages/common/messages.html' }
+                        ]
+                    }
+                ],
+                [AuthManager.ROLES.TEACHER]: [
+                    {
+                        title: '教学管理',
+                        icon: '📚',
+                        children: [
+                            { title: '我的课程', url: '/pages/teacher/course-list.html' },
+                            { title: '成绩录入', url: '/pages/teacher/score-input.html' },
+                            { title: '课件管理', url: '/pages/teacher/courseware.html' },
+                            { title: '学生管理', url: '/pages/teacher/student-list.html' }
+                        ]
+                    },
+                    {
+                        title: '个人中心',
+                        icon: '👤',
+                        children: [
+                            { title: '个人信息', url: '/pages/common/profile.html' },
+                            { title: '修改密码', url: '/pages/common/change-password.html' },
+                            { title: '消息中心', url: '/pages/common/messages.html' }
+                        ]
+                    }
+                ],
+                [AuthManager.ROLES.STUDENT]: [
+                    {
+                        title: '选课中心',
+                        icon: '🎯',
+                        children: [
+                            { title: '课程选择', url: '/pages/student/course-select.html' },
+                            { title: '我的课程', url: '/pages/student/my-courses.html' },
+                            { title: '成绩查询', url: '/pages/student/scores.html' },
+                            { title: '课件下载', url: '/pages/student/courseware.html' }
+                        ]
+                    },
+                    {
+                        title: '个人中心',
+                        icon: '👤',
+                        children: [
+                            { title: '个人信息', url: '/pages/common/profile.html' },
+                            { title: '修改密码', url: '/pages/common/change-password.html' },
+                            { title: '消息中心', url: '/pages/common/messages.html' }
+                        ]
+                    }
+                ]
+            };
+
+            return menuConfigs[role] || [];
+        }
+    };
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', async function() {
+        await initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        currentUser = event.detail.user;
+        initializeUI();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        // 检查认证状态（已在auth.js中处理）
+        const user = AuthManager.getCurrentUser();
+        if (user) {
+            currentUser = user;
+            initializeUI();
+        }
+    }
+
+    // 初始化UI
+    function initializeUI() {
+        updateUserInfo();
+        generateMenu();
+        generateQuickActions();
+        generateStats();
+        bindEvents();
+        loadNotificationCount();
+        updatePageInfo();
+    }
+
+    // 更新用户信息
+    function updateUserInfo() {
+        if (!currentUser) return;
+
+        const userName = currentUser.student?.name ||
+            currentUser.teacher?.name ||
+            currentUser.username;
+        const roleDisplay = AuthManager.getRoleDisplayName();
+        const avatar = userName.charAt(0).toUpperCase();
+
+        document.getElementById('userName').textContent = userName;
+        document.getElementById('userRole').textContent = roleDisplay;
+        document.getElementById('userAvatar').textContent = avatar;
+        document.getElementById('topUserName').textContent = userName;
+        document.getElementById('topUserAvatar').textContent = avatar;
+    }
+
+    // 生成菜单
+    function generateMenu() {
+        const primaryRole = AuthManager.getPrimaryRole();
+        const menus = MenuConfig.getMenusByRole(primaryRole);
+        const navMenu = document.getElementById('navMenu');
+
+        navMenu.innerHTML = '';
+
+        menus.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'nav-group';
+
+            const groupTitle = document.createElement('div');
+            groupTitle.className = 'nav-group-title';
+            groupTitle.innerHTML = `<span class="nav-icon">${group.icon}</span> ${group.title}`;
+            groupDiv.appendChild(groupTitle);
+
+            group.children.forEach(item => {
+                const navItem = document.createElement('div');
+                navItem.className = 'nav-item';
+
+                const navLink = document.createElement('a');
+                navLink.className = 'nav-link';
+                navLink.href = item.url;
+                navLink.innerHTML = `<span class="nav-text">${item.title}</span>`;
+
+                // 检查当前页面
+                if (window.location.pathname === item.url) {
+                    navLink.classList.add('active');
+                }
+
+                navItem.appendChild(navLink);
+                groupDiv.appendChild(navItem);
+            });
+
+            navMenu.appendChild(groupDiv);
+        });
+    }
+
+    // 生成快捷操作
+    function generateQuickActions() {
+        const primaryRole = AuthManager.getPrimaryRole();
+        const quickActions = document.getElementById('quickActions');
+
+        const actionConfigs = {
+            [AuthManager.ROLES.SYS_ADMIN]: [
+                { title: '学院管理', description: '管理系统学院信息', icon: '🏫', color: '#3498db', url: '/pages/admin/college-manage.html' },
+                { title: '教师管理', description: '管理教师账号信息', icon: '👨‍🏫', color: '#e74c3c', url: '/pages/admin/teacher-manage.html' },
+                { title: '学生管理', description: '管理学生账号信息', icon: '👨‍🎓', color: '#f39c12', url: '/pages/admin/student-manage.html' },
+                { title: '课程管理', description: '管理系统所有课程', icon: '📚', color: '#27ae60', url: '/pages/admin/course-manage.html' },
+                { title: '系统统计', description: '查看系统使用统计', icon: '📊', color: '#9b59b6', url: '/pages/admin/statistics.html' },
+                { title: '消息中心', description: '查看系统消息通知', icon: '💬', color: '#34495e', url: '/pages/common/messages.html' }
+            ],
+            [AuthManager.ROLES.COLLEGE_ADMIN]: [
+                { title: '课程管理', description: '管理学院课程信息', icon: '📚', color: '#3498db', url: '/pages/college/course-manage.html' },
+                { title: '学生列表', description: '查看学院学生信息', icon: '👥', color: '#e74c3c', url: '/pages/college/student-list.html' },
+                { title: '抽签管理', description: '执行选课抽签操作', icon: '🎲', color: '#f39c12', url: '/pages/college/lottery.html' },
+                { title: '统计报表', description: '查看选课统计报表', icon: '📈', color: '#27ae60', url: '#' },
+                { title: '消息中心', description: '查看学院消息通知', icon: '💬', color: '#9b59b6', url: '/pages/common/messages.html' },
+                { title: '个人信息', description: '管理个人资料信息', icon: '👤', color: '#34495e', url: '/pages/common/profile.html' }
+            ],
+            [AuthManager.ROLES.TEACHER]: [
+                { title: '我的课程', description: '查看授课课程列表', icon: '📖', color: '#3498db', url: '/pages/teacher/course-list.html' },
+                { title: '成绩录入', description: '录入学生课程成绩', icon: '📝', color: '#e74c3c', url: '/pages/teacher/score-input.html' },
+                { title: '课件管理', description: '上传管理课程资料', icon: '📎', color: '#f39c12', url: '/pages/teacher/courseware.html' },
+                { title: '学生管理', description: '查看选课学生信息', icon: '👨‍🎓', color: '#27ae60', url: '/pages/teacher/student-list.html' },
+                { title: '消息中心', description: '查看教学消息通知', icon: '💬', color: '#9b59b6', url: '/pages/common/messages.html' },
+                { title: '个人信息', description: '管理个人资料信息', icon: '👤', color: '#34495e', url: '/pages/common/profile.html' }
+            ],
+            [AuthManager.ROLES.STUDENT]: [
+                { title: '课程选择', description: '浏览并选择感兴趣的课程', icon: '🎯', color: '#3498db', url: '/pages/student/course-select.html' },
+                { title: '我的课程', description: '查看已选课程状态', icon: '📋', color: '#e74c3c', url: '/pages/student/my-courses.html' },
+                { title: '成绩查询', description: '查看个人课程成绩', icon: '📊', color: '#f39c12', url: '/pages/student/scores.html' },
+                { title: '课件下载', description: '下载课程学习资料', icon: '⬇️', color: '#27ae60', url: '/pages/student/courseware.html' },
+                { title: '消息中心', description: '查看学习消息通知', icon: '💬', color: '#9b59b6', url: '/pages/common/messages.html' },
+                { title: '个人信息', description: '管理个人资料信息', icon: '👤', color: '#34495e', url: '/pages/common/profile.html' }
+            ]
+        };
+
+        const actions = actionConfigs[primaryRole] || [];
+        quickActions.innerHTML = '';
+
+        actions.forEach(action => {
+            const actionCard = document.createElement('a');
+            actionCard.className = 'action-card';
+            actionCard.href = action.url;
+            actionCard.innerHTML = `
+                <div class="action-icon" style="background: ${action.color}; color: white;">
+                    ${action.icon}
+                </div>
+                <div class="action-title">${action.title}</div>
+                <div class="action-description">${action.description}</div>
+            `;
+            quickActions.appendChild(actionCard);
+        });
+    }
+
+    // 生成统计信息
+    async function generateStats() {
+        const primaryRole = AuthManager.getPrimaryRole();
+        const statsGrid = document.getElementById('statsGrid');
+
+        try {
+            let stats = [];
+
+            if (primaryRole === AuthManager.ROLES.SYS_ADMIN) {
+                stats = [
+                    { label: '学院数量', value: '-', icon: '🏫', color: '#3498db' },
+                    { label: '教师总数', value: '-', icon: '👨‍🏫', color: '#e74c3c' },
+                    { label: '学生总数', value: '-', icon: '👨‍🎓', color: '#f39c12' },
+                    { label: '课程总数', value: '-', icon: '📚', color: '#27ae60' }
+                ];
+            } else if (primaryRole === AuthManager.ROLES.COLLEGE_ADMIN) {
+                stats = [
+                    { label: '学院课程', value: '-', icon: '📚', color: '#3498db' },
+                    { label: '学院教师', value: '-', icon: '👨‍🏫', color: '#e74c3c' },
+                    { label: '学院学生', value: '-', icon: '👨‍🎓', color: '#f39c12' },
+                    { label: '选课申请', value: '-', icon: '📝', color: '#27ae60' }
+                ];
+            } else if (primaryRole === AuthManager.ROLES.TEACHER) {
+                stats = [
+                    { label: '授课课程', value: '-', icon: '📖', color: '#3498db' },
+                    { label: '选课学生', value: '-', icon: '👥', color: '#e74c3c' },
+                    { label: '已录成绩', value: '-', icon: '📊', color: '#f39c12' },
+                    { label: '课件数量', value: '-', icon: '📎', color: '#27ae60' }
+                ];
+            } else if (primaryRole === AuthManager.ROLES.STUDENT) {
+                stats = [
+                    { label: '已选课程', value: '-', icon: '📋', color: '#3498db' },
+                    { label: '待抽签', value: '-', icon: '🎲', color: '#e74c3c' },
+                    { label: '已获学分', value: '-', icon: '🏆', color: '#f39c12' },
+                    { label: '平均成绩', value: '-', icon: '📈', color: '#27ae60' }
+                ];
+            }
+
+            statsGrid.innerHTML = '';
+            stats.forEach(stat => {
+                const statCard = document.createElement('div');
+                statCard.className = 'stat-card';
+                statCard.innerHTML = `
+                    <div class="stat-icon" style="background: ${stat.color}; color: white;">
+                        ${stat.icon}
+                    </div>
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                `;
+                statsGrid.appendChild(statCard);
+            });
+
+            // 异步加载真实数据
+            loadRealStats(primaryRole);
+        } catch (error) {
+            console.warn('Failed to load stats:', error);
+        }
+    }
+
+    // 加载真实统计数据
+    async function loadRealStats(role) {
+        try {
+            if (role === AuthManager.ROLES.SYS_ADMIN) {
+                // 加载系统级统计
+                const [collegeResponse, teacherResponse, studentResponse, courseResponse] = await Promise.all([
+                    API.College.getAll(),
+                    API.Teacher.getAll(),
+                    API.Student.getAll(),
+                    API.Course.getAll()
+                ]);
+
+                const statCards = document.querySelectorAll('.stat-value');
+                if (collegeResponse.code === 200 && statCards[0]) {
+                    statCards[0].textContent = collegeResponse.data.length;
+                }
+                if (teacherResponse.code === 200 && statCards[1]) {
+                    statCards[1].textContent = teacherResponse.data.length;
+                }
+                if (studentResponse.code === 200 && statCards[2]) {
+                    statCards[2].textContent = studentResponse.data.length;
+                }
+                if (courseResponse.code === 200 && statCards[3]) {
+                    statCards[3].textContent = courseResponse.data.length;
+                }
+            } else if (role === AuthManager.ROLES.COLLEGE_ADMIN) {
+                // 加载学院级统计
+                const collegeId = AuthManager.getUserCollegeId();
+                if (collegeId) {
+                    const [courseResponse, teacherResponse, studentResponse] = await Promise.all([
+                        API.Course.getByCollege(collegeId),
+                        API.Teacher.getByCollege(collegeId),
+                        API.Student.getByCollege(collegeId)
+                    ]);
+
+                    const statCards = document.querySelectorAll('.stat-value');
+                    if (courseResponse.code === 200 && statCards[0]) {
+                        statCards[0].textContent = courseResponse.data.length;
+                    }
+                    if (teacherResponse.code === 200 && statCards[1]) {
+                        statCards[1].textContent = teacherResponse.data.length;
+                    }
+                    if (studentResponse.code === 200 && statCards[2]) {
+                        statCards[2].textContent = studentResponse.data.length;
+                    }
+                }
+            } else if (role === AuthManager.ROLES.TEACHER) {
+                // 加载教师统计
+                const teacherResponse = await API.Teacher.getCurrent();
+                if (teacherResponse.code === 200) {
+                    const courseResponse = await API.Course.getByTeacher(teacherResponse.data.id);
+                    const statCards = document.querySelectorAll('.stat-value');
+                    if (courseResponse.code === 200 && statCards[0]) {
+                        statCards[0].textContent = courseResponse.data.length;
+                    }
+                }
+            } else if (role === AuthManager.ROLES.STUDENT) {
+                // 加载学生统计
+                const response = await API.CourseSelection.getMySelections();
+                if (response.code === 200) {
+                    const selections = response.data;
+                    const statCards = document.querySelectorAll('.stat-value');
+
+                    if (statCards[0]) statCards[0].textContent = selections.length;
+                    if (statCards[1]) {
+                        const pending = selections.filter(s => s.status === 1).length;
+                        statCards[1].textContent = pending;
+                    }
+                    if (statCards[2]) {
+                        const selected = selections.filter(s => s.status === 2 && s.lotteryResult === 1);
+                        const totalCredits = selected.reduce((sum, s) => sum + (s.course?.credits || 0), 0);
+                        statCards[2].textContent = totalCredits;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load real stats:', error);
+        }
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 侧边栏切换
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        sidebarToggle.addEventListener('click', function() {
+            if (isMobile) {
+                sidebar.classList.toggle('open');
+                sidebarOverlay.classList.toggle('show');
+            } else {
+                sidebar.classList.toggle('collapsed');
+            }
+        });
+
+        sidebarOverlay.addEventListener('click', function() {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('show');
+        });
+
+        // 用户下拉菜单
+        const userDropdown = document.getElementById('userDropdown');
+        const userDropdownToggle = document.getElementById('userDropdownToggle');
+
+        userDropdownToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            userDropdown.classList.toggle('open');
+        });
+
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(e) {
+            if (!userDropdown.contains(e.target)) {
+                userDropdown.classList.remove('open');
+            }
+        });
+
+        // 退出登录
+        document.getElementById('logoutBtn').addEventListener('click', async function(e) {
+            e.preventDefault();
+            Utils.confirm('确定要退出登录吗？', async () => {
+                await AuthManager.logout();
+            });
+        });
+
+        // 通知铃铛
+        document.getElementById('notificationBell').addEventListener('click', function() {
+            window.location.href = '/pages/common/messages.html';
+        });
+
+        // 响应式处理
+        window.addEventListener('resize', function() {
+            const newIsMobile = window.innerWidth <= 768;
+            if (newIsMobile !== isMobile) {
+                isMobile = newIsMobile;
+                sidebar.classList.remove('open', 'collapsed');
+                sidebarOverlay.classList.remove('show');
+            }
+        });
+    }
+
+    // 加载通知数量
+    async function loadNotificationCount() {
+        try {
+            const response = await API.Message.getUnreadCount();
+            if (response.code === 200 && response.data > 0) {
+                const badge = document.getElementById('notificationBadge');
+                badge.textContent = response.data;
+                badge.classList.remove('d-none');
+            }
+        } catch (error) {
+            console.warn('Failed to load notification count:', error);
+        }
+    }
+
+    // 更新页面信息
+    function updatePageInfo() {
+        const primaryRole = AuthManager.getPrimaryRole();
+        const roleNames = {
+            [AuthManager.ROLES.SYS_ADMIN]: '系统管理员',
+            [AuthManager.ROLES.COLLEGE_ADMIN]: '学院管理员',
+            [AuthManager.ROLES.TEACHER]: '教师',
+            [AuthManager.ROLES.STUDENT]: '学生'
+        };
+
+        const userName = currentUser.student?.name ||
+            currentUser.teacher?.name ||
+            currentUser.username;
+
+        document.getElementById('pageTitle').textContent = `欢迎您，${userName}`;
+        document.getElementById('pageDescription').textContent = `您当前的身份是：${roleNames[primaryRole]}`;
+    }
+</script>
+</body>
+</html>

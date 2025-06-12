@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">教学管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">学生管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">学生管理</h1>
+                <p class="page-description">查看和管理您课程的选课学生</p>
+            </div>
+
+            <!-- 课程选择 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>选择课程</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">我的课程</label>
+                                <select class="form-select" id="courseSelect">
+                                    <option value="">请选择课程</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-primary" id="loadStudentsBtn" disabled>加载学生列表</button>
+                                    <button class="btn btn-success ml-2" id="exportListBtn" disabled>导出名单</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 课程信息显示 -->
+                    <div id="courseInfo" style="display: none;">
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <p><strong>课程编码：</strong><span id="courseCode">-</span></p>
+                            </div>
+                            <div class="col-md-3">
+                                <p><strong>学分：</strong><span id="courseCredits">-</span></p>
+                            </div>
+                            <div class="col-md-3">
+                                <p><strong>最大人数：</strong><span id="maxStudents">-</span></p>
+                            </div>
+                            <div class="col-md-3">
+                                <p><strong>当前状态：</strong><span id="courseStatus">-</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 学生统计 -->
+            <div class="stats-grid mb-4" id="statsGrid" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">👥</div>
+                    <div class="stat-value" id="totalStudents">0</div>
+                    <div class="stat-label">总申请人数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="selectedStudents">0</div>
+                    <div class="stat-label">已选中</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">⏳</div>
+                    <div class="stat-value" id="pendingStudents">0</div>
+                    <div class="stat-label">待抽签</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">❌</div>
+                    <div class="stat-value" id="rejectedStudents">0</div>
+                    <div class="stat-label">未中签</div>
+                </div>
+            </div>
+
+            <!-- 筛选工具栏 -->
+            <div class="card" id="filterCard" style="display: none;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">选课状态</label>
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">全部状态</option>
+                                    <option value="1">申请中</option>
+                                    <option value="2">已确定</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">抽签结果</label>
+                                <select class="form-select" id="resultFilter">
+                                    <option value="">全部结果</option>
+                                    <option value="1">中签</option>
+                                    <option value="0">未中签</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">班级</label>
+                                <select class="form-select" id="classFilter">
+                                    <option value="">全部班级</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">搜索</label>
+                                <input type="text"
+                                       class="form-control"
+                                       id="searchInput"
+                                       placeholder="搜索学号、姓名...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary" id="searchBtn">搜索</button>
+                            <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 学生列表 -->
+            <div class="card" id="studentsCard" style="display: none;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>学生列表</h5>
+                    <span class="text-muted" id="studentCount">共 0 名学生</span>
+                </div>
+                <div class="card-body">
+                    <div id="studentsLoadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载学生数据中...</p>
+                    </div>
+
+                    <div id="studentsTableContainer" style="display: none;"></div>
+
+                    <div id="studentsEmptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">👥</div>
+                        <h5>该课程暂无选课学生</h5>
+                        <p class="text-muted">还没有学生申请选择这门课程</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 学生详情模态框 -->
+<div class="modal" id="studentDetailModal">
+    <div class="modal-dialog" style="max-width: 800px;">
+        <div class="modal-header">
+            <h5 class="modal-title">学生详情</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="studentDetailContent">
+            <!-- 动态生成学生详情 -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
+            <button type="button" class="btn btn-primary" id="sendMessageBtn" style="display: none;">发送消息</button>
+        </div>
+    </div>
+</div>
+
+<!-- 发送消息模态框 -->
+<div class="modal" id="sendMessageModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title">发送消息</h5>
+            <button type="button" class="modal-close" onclick="closeSendMessageModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="messageForm">
+                <input type="hidden" id="messageReceiverId">
+                <div class="form-group">
+                    <label class="form-label">接收人</label>
+                    <input type="text" class="form-control" id="receiverName" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">相关课程</label>
+                    <input type="text" class="form-control" id="relatedCourse" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">消息内容 *</label>
+                    <textarea class="form-control"
+                              id="messageContent"
+                              rows="5"
+                              required
+                              placeholder="请输入消息内容..."
+                              maxlength="1000"></textarea>
+                    <small class="text-muted">最多1000个字符</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeSendMessageModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="confirmSendBtn">发送</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentTeacher = null;
+    let myCourses = [];
+    let currentCourse = null;
+    let allStudents = [];
+    let filteredStudents = [];
+    let classes = [];
+    let selectedStudent = null;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isTeacher()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            // 获取当前教师信息
+            const teacherResponse = await API.Teacher.getCurrent();
+            if (teacherResponse.code === 200) {
+                currentTeacher = teacherResponse.data;
+                await loadMyCourses();
+
+                // 检查URL参数中是否指定了课程ID
+                const courseId = Utils.getUrlParam('courseId');
+                if (courseId && myCourses.some(c => c.id == courseId)) {
+                    document.getElementById('courseSelect').value = courseId;
+                    currentCourse = myCourses.find(c => c.id == courseId);
+                    if (currentCourse) {
+                        await loadCourseStudents();
+                        updateCourseInfo();
+                        showStudentManagement();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载我的课程
+    async function loadMyCourses() {
+        try {
+            if (!currentTeacher) return;
+
+            const response = await API.Course.getByTeacher(currentTeacher.id);
+            if (response.code === 200) {
+                myCourses = response.data || [];
+                renderCourseSelect();
+            }
+        } catch (error) {
+            console.error('Load my courses error:', error);
+            Utils.showMessage('加载课程列表失败', 'danger');
+        }
+    }
+
+    // 渲染课程选择器
+    function renderCourseSelect() {
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = '<option value="">请选择课程</option>';
+
+        myCourses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `${course.name} (${course.courseCode})`;
+            courseSelect.appendChild(option);
+        });
+    }
+
+    // 加载课程学生
+    async function loadCourseStudents() {
+        try {
+            if (!currentCourse) return;
+
+            const loadingContainer = document.getElementById('studentsLoadingContainer');
+            const tableContainer = document.getElementById('studentsTableContainer');
+            const emptyContainer = document.getElementById('studentsEmptyContainer');
+
+            loadingContainer.style.display = 'block';
+            tableContainer.style.display = 'none';
+            emptyContainer.style.display = 'none';
+
+            const response = await API.CourseSelection.getCourseSelections(currentCourse.id);
+
+            if (response.code === 200) {
+                allStudents = response.data || [];
+                filteredStudents = [...allStudents];
+
+                if (allStudents.length === 0) {
+                    showStudentsEmptyState();
+                } else {
+                    extractClasses();
+                    renderClassFilter();
+                    renderStudentsTable();
+                    updateStatistics();
+                }
+            } else {
+                Utils.showMessage('加载学生数据失败: ' + response.message, 'danger');
+                showStudentsEmptyState();
+            }
+        } catch (error) {
+            console.error('Load course students error:', error);
+            Utils.showMessage('加载学生数据失败', 'danger');
+            showStudentsEmptyState();
+        } finally {
+            document.getElementById('studentsLoadingContainer').style.display = 'none';
+        }
+    }
+
+    // 提取班级列表
+    function extractClasses() {
+        const classSet = new Set();
+        allStudents.forEach(selection => {
+            if (selection.student.class) {
+                classSet.add(selection.student.class);
+            }
+        });
+        classes = Array.from(classSet).sort();
+    }
+
+    // 渲染班级筛选器
+    function renderClassFilter() {
+        const classFilter = document.getElementById('classFilter');
+        classFilter.innerHTML = '<option value="">全部班级</option>';
+
+        classes.forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            classFilter.appendChild(option);
+        });
+    }
+
+    // 渲染学生表格
+    function renderStudentsTable() {
+        const tableContainer = document.getElementById('studentsTableContainer');
+
+        const columns = [
+            { field: 'student.studentNo', title: '学号', width: '120px' },
+            { field: 'student.name', title: '姓名', width: '100px' },
+            { field: 'student.grade', title: '年级', width: '80px' },
+            { field: 'student.class', title: '班级', width: '80px' },
+            {
+                field: 'status',
+                title: '选课状态',
+                width: '100px',
+                render: (value) => {
+                    if (value === 1) {
+                        return '<span class="badge bg-warning">申请中</span>';
+                    } else if (value === 2) {
+                        return '<span class="badge bg-info">已确定</span>';
+                    }
+                    return '<span class="badge bg-secondary">未知</span>';
+                }
+            },
+            {
+                field: 'lotteryResult',
+                title: '抽签结果',
+                width: '100px',
+                render: (value, row) => {
+                    if (row.status === 1) {
+                        return '<span class="text-muted">待抽签</span>';
+                    } else if (row.status === 2) {
+                        if (value === 1) {
+                            return '<span class="badge bg-success">中签</span>';
+                        } else {
+                            return '<span class="badge bg-danger">未中签</span>';
+                        }
+                    }
+                    return '<span class="text-muted">-</span>';
+                }
+            },
+            {
+                field: 'gmtCreate',
+                title: '申请时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD HH:mm')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '180px',
+                render: (value, row) => `
+                    <button class="btn btn-sm btn-primary" onclick="viewStudentDetail(${row.student.id})">
+                        详情
+                    </button>
+                    <button class="btn btn-sm btn-success ml-1" onclick="sendMessage(${row.student.id})">
+                        发消息
+                    </button>
+                    <button class="btn btn-sm btn-info ml-1" onclick="viewStudentScores(${row.student.id})">
+                        成绩
+                    </button>
+                `
+            }
+        ];
+
+        TableUtils.createTable(filteredStudents, columns, tableContainer);
+
+        tableContainer.style.display = 'block';
+        document.getElementById('studentCount').textContent = `共 ${filteredStudents.length} 名学生`;
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = allStudents.length;
+        const selected = allStudents.filter(s => s.status === 2 && s.lotteryResult === 1).length;
+        const pending = allStudents.filter(s => s.status === 1).length;
+        const rejected = allStudents.filter(s => s.status === 2 && s.lotteryResult !== 1).length;
+
+        document.getElementById('totalStudents').textContent = total;
+        document.getElementById('selectedStudents').textContent = selected;
+        document.getElementById('pendingStudents').textContent = pending;
+        document.getElementById('rejectedStudents').textContent = rejected;
+    }
+
+    // 显示学生管理界面
+    function showStudentManagement() {
+        document.getElementById('statsGrid').style.display = 'grid';
+        document.getElementById('filterCard').style.display = 'block';
+        document.getElementById('studentsCard').style.display = 'block';
+    }
+
+    // 更新课程信息
+    function updateCourseInfo() {
+        if (!currentCourse) return;
+
+        document.getElementById('courseCode').textContent = currentCourse.courseCode;
+        document.getElementById('courseCredits').textContent = currentCourse.credits;
+        document.getElementById('maxStudents').textContent = currentCourse.maxStudents;
+        document.getElementById('courseStatus').innerHTML = currentCourse.status === 1 ?
+            '<span class="badge bg-success">启用</span>' :
+            '<span class="badge bg-secondary">停用</span>';
+
+        document.getElementById('courseInfo').style.display = 'block';
+        document.getElementById('loadStudentsBtn').disabled = false;
+        document.getElementById('exportListBtn').disabled = false;
+    }
+
+    // 显示学生空状态
+    function showStudentsEmptyState() {
+        document.getElementById('studentsLoadingContainer').style.display = 'none';
+        document.getElementById('studentsTableContainer').style.display = 'none';
+        document.getElementById('studentsEmptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 课程选择
+        const courseSelect = document.getElementById('courseSelect');
+
+        courseSelect.addEventListener('change', function() {
+            const courseId = this.value;
+            currentCourse = myCourses.find(c => c.id == courseId);
+
+            if (currentCourse) {
+                updateCourseInfo();
+            } else {
+                hideCourseInfo();
+            }
+        });
+
+        // 加载学生按钮
+        document.getElementById('loadStudentsBtn').addEventListener('click', function() {
+            if (currentCourse) {
+                loadCourseStudents();
+                showStudentManagement();
+            }
+        });
+
+        // 搜索功能
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 回车搜索
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // 筛选器变化
+        document.getElementById('statusFilter').addEventListener('change', performSearch);
+        document.getElementById('resultFilter').addEventListener('change', performSearch);
+        document.getElementById('classFilter').addEventListener('change', performSearch);
+
+        // 导出名单
+        document.getElementById('exportListBtn').addEventListener('click', exportStudentList);
+
+        // 发送消息确认
+        document.getElementById('confirmSendBtn').addEventListener('click', confirmSendMessage);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 隐藏课程信息
+    function hideCourseInfo() {
+        document.getElementById('courseInfo').style.display = 'none';
+        document.getElementById('statsGrid').style.display = 'none';
+        document.getElementById('filterCard').style.display = 'none';
+        document.getElementById('studentsCard').style.display = 'none';
+        document.getElementById('loadStudentsBtn').disabled = true;
+        document.getElementById('exportListBtn').disabled = true;
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+        const status = document.getElementById('statusFilter').value;
+        const result = document.getElementById('resultFilter').value;
+        const className = document.getElementById('classFilter').value;
+
+        filteredStudents = allStudents.filter(selection => {
+            let match = true;
+
+            if (keyword) {
+                const student = selection.student;
+                match = match && (
+                    student.studentNo.toLowerCase().includes(keyword) ||
+                    student.name.toLowerCase().includes(keyword)
+                );
+            }
+
+            if (status) {
+                match = match && selection.status == status;
+            }
+
+            if (result !== '' && selection.status === 2) {
+                match = match && selection.lotteryResult == result;
+            }
+
+            if (className) {
+                match = match && selection.student.class === className;
+            }
+
+            return match;
+        });
+
+        renderStudentsTable();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('resultFilter').value = '';
+        document.getElementById('classFilter').value = '';
+
+        filteredStudents = [...allStudents];
+        renderStudentsTable();
+    }
+
+    // 查看学生详情
+    function viewStudentDetail(studentId) {
+        const selection = allStudents.find(s => s.student.id === studentId);
+        if (!selection) return;
+
+        selectedStudent = selection.student;
+        const student = selection.student;
+
+        const content = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>基本信息</h6>
+                    <p><strong>学号：</strong>${student.studentNo}</p>
+                    <p><strong>姓名：</strong>${student.name}</p>
+                    <p><strong>年级：</strong>${student.grade}</p>
+                    <p><strong>班级：</strong>${student.class}</p>
+                    <p><strong>学院：</strong>${student.college?.name || '未知'}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>选课信息</h6>
+                    <p><strong>申请时间：</strong>${Utils.formatDate(selection.gmtCreate, 'YYYY-MM-DD HH:mm')}</p>
+                    <p><strong>选课状态：</strong>
+                        ${selection.status === 1 ? '<span class="badge bg-warning">申请中</span>' :
+            '<span class="badge bg-info">已确定</span>'}
+                    </p>
+                    <p><strong>抽签结果：</strong>
+                        ${selection.status === 1 ? '<span class="text-muted">待抽签</span>' :
+            (selection.lotteryResult === 1 ?
+                '<span class="badge bg-success">中签</span>' :
+                '<span class="badge bg-danger">未中签</span>')}
+                    </p>
+                    <p><strong>当前课程：</strong>${currentCourse.name}</p>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>学习情况</h6>
+                    <p><strong>本课程成绩：</strong><span id="studentScore">查询中...</span></p>
+                    <p><strong>选课总数：</strong><span id="totalSelections">查询中...</span></p>
+                    <p><strong>平均成绩：</strong><span id="averageScore">查询中...</span></p>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>快速操作</h6>
+                    <div class="btn-group">
+                        <button class="btn btn-primary btn-sm" onclick="sendMessage(${student.id})">发送消息</button>
+                        <button class="btn btn-info btn-sm" onclick="viewStudentScores(${student.id})">查看成绩</button>
+                        <a href="/pages/teacher/score-input.html?courseId=${currentCourse.id}"
+                           class="btn btn-success btn-sm">录入成绩</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('studentDetailContent').innerHTML = content;
+        document.getElementById('sendMessageBtn').style.display = 'inline-block';
+        document.getElementById('sendMessageBtn').onclick = () => sendMessage(student.id);
+
+        Utils.showModal(document.getElementById('studentDetailModal'));
+
+        // 异步加载学生成绩信息
+        loadStudentScoreInfo(studentId);
+    }
+
+    // 加载学生成绩信息
+    async function loadStudentScoreInfo(studentId) {
+        try {
+            // 查询本课程成绩
+            const courseScoreResponse = await API.Score.getByStudentAndCourse(studentId, currentCourse.id);
+            const scoreSpan = document.getElementById('studentScore');
+            if (courseScoreResponse.code === 200 && courseScoreResponse.data) {
+                scoreSpan.textContent = courseScoreResponse.data.score + '分';
+                scoreSpan.className = 'text-success';
+            } else {
+                scoreSpan.textContent = '未录入';
+                scoreSpan.className = 'text-muted';
+            }
+
+            // 查询学生所有选课
+            const selectionsResponse = await API.CourseSelection.getByStudent(studentId);
+            if (selectionsResponse.code === 200) {
+                document.getElementById('totalSelections').textContent = selectionsResponse.data.length + '门';
+            }
+
+            // 查询学生所有成绩
+            const allScoresResponse = await API.Score.getByStudent(studentId);
+            if (allScoresResponse.code === 200 && allScoresResponse.data.length > 0) {
+                const scores = allScoresResponse.data.map(s => s.score);
+                const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+                document.getElementById('averageScore').textContent = average.toFixed(2) + '分';
+            } else {
+                document.getElementById('averageScore').textContent = '暂无成绩';
+            }
+        } catch (error) {
+            console.warn('Load student score info error:', error);
+        }
+    }
+
+    // 发送消息
+    function sendMessage(studentId) {
+        const student = allStudents.find(s => s.student.id === studentId)?.student;
+        if (!student) return;
+
+        document.getElementById('messageReceiverId').value = student.user.id;
+        document.getElementById('receiverName').value = `${student.name} (${student.studentNo})`;
+        document.getElementById('relatedCourse').value = `${currentCourse.name} (${currentCourse.courseCode})`;
+        document.getElementById('messageContent').value = '';
+
+        // 关闭详情模态框
+        Utils.closeModal();
+
+        setTimeout(() => {
+            Utils.showModal(document.getElementById('sendMessageModal'));
+        }, 300);
+    }
+
+    // 确认发送消息
+    async function confirmSendMessage() {
+        const form = document.getElementById('messageForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        try {
+            const confirmBtn = document.getElementById('confirmSendBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '发送中...';
+
+            const receiverId = document.getElementById('messageReceiverId').value;
+            const content = document.getElementById('messageContent').value.trim();
+
+            const response = await API.Message.send(receiverId, content, currentCourse.id);
+
+            if (response.code === 200) {
+                Utils.showMessage('消息发送成功', 'success');
+                closeSendMessageModal();
+            } else {
+                Utils.showMessage('发送失败: ' + response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Send message error:', error);
+            Utils.showMessage('发送失败: ' + error.message, 'danger');
+        } finally {
+            const confirmBtn = document.getElementById('confirmSendBtn');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '发送';
+        }
+    }
+
+    // 查看学生成绩
+    function viewStudentScores(studentId) {
+        const student = allStudents.find(s => s.student.id === studentId)?.student;
+        if (!student) return;
+
+        Utils.showMessage(`查看学生 ${student.name} 的详细成绩功能开发中...`, 'info');
+        // 这里可以跳转到成绩详情页面或打开新的模态框
+    }
+
+    // 导出学生名单
+    function exportStudentList() {
+        if (!currentCourse || filteredStudents.length === 0) {
+            Utils.showMessage('没有数据可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '学号,姓名,年级,班级,选课状态,抽签结果,申请时间\n';
+
+        filteredStudents.forEach(selection => {
+            const student = selection.student;
+            const status = selection.status === 1 ? '申请中' : '已确定';
+            const result = selection.status === 1 ? '待抽签' :
+                (selection.lotteryResult === 1 ? '中签' : '未中签');
+            const applyTime = Utils.formatDate(selection.gmtCreate, 'YYYY-MM-DD HH:mm');
+
+            csvContent += `${student.studentNo},${student.name},${student.grade},${student.class},${status},${result},${applyTime}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${currentCourse.name}_学生名单_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('学生名单导出成功', 'success');
+    }
+
+    // 关闭详情模态框
+    function closeModal() {
+        Utils.closeModal();
+        selectedStudent = null;
+    }
+
+    // 关闭发送消息模态框
+    function closeSendMessageModal() {
+        Utils.closeModal();
+        document.getElementById('messageForm').reset();
+    }
+
+    // 导出函数到全局作用域
+    window.viewStudentDetail = viewStudentDetail;
+    window.sendMessage = sendMessage;
+    window.viewStudentScores = viewStudentScores;
+    window.closeModal = closeModal;
+    window.closeSendMessageModal = closeSendMessageModal;
+</script>
+</body>
+</html>

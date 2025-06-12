@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>选课管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">系统管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">选课管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">选课管理</h1>
+                <p class="page-description">管理系统中所有的选课记录</p>
+            </div>
+
+            <!-- 选课统计 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📚</div>
+                    <div class="stat-value" id="totalSelections">0</div>
+                    <div class="stat-label">总选课数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">⏳</div>
+                    <div class="stat-value" id="pendingSelections">0</div>
+                    <div class="stat-label">待抽签</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="successSelections">0</div>
+                    <div class="stat-label">已中签</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">❌</div>
+                    <div class="stat-value" id="failedSelections">0</div>
+                    <div class="stat-label">未中签</div>
+                </div>
+            </div>
+
+            <!-- 选课统计图表 -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>每门课选择人数统计</h5>
+                    <div>
+                        <button class="btn btn-success" id="exportChartBtn">📊 导出图表</button>
+                        <button class="btn btn-primary ml-2" id="refreshChartBtn">🔄 刷新</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="courseSelectionChart" width="800" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- 筛选工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">课程</label>
+                                <select class="form-select" id="courseFilter">
+                                    <option value="">全部课程</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">学院</label>
+                                <select class="form-select" id="collegeFilter">
+                                    <option value="">全部学院</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">状态</label>
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">全部状态</option>
+                                    <option value="1">申请中</option>
+                                    <option value="2">已确定</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">抽签结果</label>
+                                <select class="form-select" id="resultFilter">
+                                    <option value="">全部结果</option>
+                                    <option value="1">中签</option>
+                                    <option value="0">未中签</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-primary" id="searchBtn">搜索</button>
+                                    <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 选课列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>选课记录</h5>
+                    <div>
+                        <button class="btn btn-success" id="exportBtn">📊 导出数据</button>
+                        <button class="btn btn-danger ml-2" id="batchDeleteBtn">批量删除</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="tableContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <p class="text-muted">暂无选课记录</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let allSelections = [];
+    let filteredSelections = [];
+    let courses = [];
+    let colleges = [];
+    let courseStats = {};
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isSysAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            await Promise.all([
+                loadAllSelections(),
+                loadCourses(),
+                loadColleges()
+            ]);
+
+            renderFilters();
+            renderSelectionTable();
+            updateStatistics();
+            renderChart();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载所有选课记录
+    async function loadAllSelections() {
+        try {
+            const response = await API.CourseSelection.getAll();
+            if (response.code === 200) {
+                allSelections = response.data || [];
+                filteredSelections = [...allSelections];
+            }
+        } catch (error) {
+            console.error('Load selections error:', error);
+            throw error;
+        }
+    }
+
+    // 加载课程列表
+    async function loadCourses() {
+        try {
+            const response = await API.Course.getAll();
+            if (response.code === 200) {
+                courses = response.data || [];
+                // 统计每门课程的选课人数
+                calculateCourseStats();
+            }
+        } catch (error) {
+            console.warn('Load courses error:', error);
+        }
+    }
+
+    // 加载学院列表
+    async function loadColleges() {
+        try {
+            const response = await API.College.getAll();
+            if (response.code === 200) {
+                colleges = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load colleges error:', error);
+        }
+    }
+
+    // 计算课程统计
+    function calculateCourseStats() {
+        courseStats = {};
+        courses.forEach(course => {
+            const courseSelections = allSelections.filter(s => s.course.id === course.id);
+            courseStats[course.id] = {
+                course: course,
+                totalCount: courseSelections.length,
+                pendingCount: courseSelections.filter(s => s.status === 1).length,
+                successCount: courseSelections.filter(s => s.status === 2 && s.lotteryResult === 1).length,
+                failedCount: courseSelections.filter(s => s.status === 2 && s.lotteryResult !== 1).length
+            };
+        });
+    }
+
+    // 渲染筛选器
+    function renderFilters() {
+        // 课程筛选器
+        const courseFilter = document.getElementById('courseFilter');
+        courseFilter.innerHTML = '<option value="">全部课程</option>';
+        courses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `${course.name} (${course.courseCode})`;
+            courseFilter.appendChild(option);
+        });
+
+        // 学院筛选器
+        const collegeFilter = document.getElementById('collegeFilter');
+        collegeFilter.innerHTML = '<option value="">全部学院</option>';
+        colleges.forEach(college => {
+            const option = document.createElement('option');
+            option.value = college.id;
+            option.textContent = college.name;
+            collegeFilter.appendChild(option);
+        });
+    }
+
+    // 渲染选课表格
+    function renderSelectionTable() {
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredSelections.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            {
+                field: 'checkbox',
+                title: '<input type="checkbox" id="selectAll">',
+                width: '50px',
+                render: (value, row) => `<input type="checkbox" class="selection-checkbox" value="${row.id}">`
+            },
+            { field: 'student.studentNo', title: '学号', width: '120px' },
+            { field: 'student.name', title: '学生姓名', width: '100px' },
+            { field: 'course.name', title: '课程名称', width: '150px' },
+            { field: 'course.courseCode', title: '课程编码', width: '120px' },
+            {
+                field: 'course.college.name',
+                title: '开课学院',
+                width: '120px',
+                render: (value) => value || '未知'
+            },
+            {
+                field: 'status',
+                title: '选课状态',
+                width: '100px',
+                render: (value) => {
+                    if (value === 1) return '<span class="badge bg-warning">申请中</span>';
+                    if (value === 2) return '<span class="badge bg-info">已确定</span>';
+                    return '<span class="badge bg-secondary">未知</span>';
+                }
+            },
+            {
+                field: 'lotteryResult',
+                title: '抽签结果',
+                width: '100px',
+                render: (value, row) => {
+                    if (row.status === 1) return '<span class="text-muted">待抽签</span>';
+                    if (row.status === 2) {
+                        if (value === 1) return '<span class="badge bg-success">中签</span>';
+                        return '<span class="badge bg-danger">未中签</span>';
+                    }
+                    return '<span class="text-muted">-</span>';
+                }
+            },
+            {
+                field: 'gmtCreate',
+                title: '申请时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD HH:mm')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '120px',
+                render: (value, row) => `
+                    <button class="btn btn-sm btn-info" onclick="viewSelectionDetail(${row.id})">详情</button>
+                    <button class="btn btn-sm btn-danger ml-1" onclick="deleteSelection(${row.id})">删除</button>
+                `
+            }
+        ];
+
+        TableUtils.createTable(filteredSelections, columns, tableContainer);
+
+        // 绑定全选事件
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.selection-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+
+    // 渲染统计图表
+    function renderChart() {
+        const canvas = document.getElementById('courseSelectionChart');
+        const ctx = canvas.getContext('2d');
+
+        // 获取前20门课程的选课数据
+        const sortedStats = Object.values(courseStats)
+            .sort((a, b) => b.totalCount - a.totalCount)
+            .slice(0, 20);
+
+        if (sortedStats.length === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#999';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('暂无数据', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        const padding = 60;
+        const chartWidth = canvas.width - 2 * padding;
+        const chartHeight = canvas.height - 2 * padding - 60;
+        const barWidth = chartWidth / sortedStats.length * 0.8;
+        const maxValue = Math.max(...sortedStats.map(s => s.totalCount));
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制标题
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('每门课程选择人数统计（TOP 20）', canvas.width / 2, 30);
+
+        // 绘制柱状图
+        sortedStats.forEach((stat, index) => {
+            const barHeight = maxValue > 0 ? (stat.totalCount / maxValue) * chartHeight : 0;
+            const x = padding + index * (chartWidth / sortedStats.length) + (chartWidth / sortedStats.length - barWidth) / 2;
+            const y = padding + 60 + chartHeight - barHeight;
+
+            // 绘制柱子
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(x, y, barWidth, barHeight);
+
+            // 绘制数值
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(stat.totalCount, x + barWidth / 2, y - 5);
+
+            // 绘制课程名称（简化）
+            const courseName = stat.course.name.length > 6 ?
+                stat.course.name.substring(0, 6) + '...' : stat.course.name;
+            ctx.save();
+            ctx.translate(x + barWidth / 2, padding + 60 + chartHeight + 15);
+            ctx.rotate(-Math.PI / 4);
+            ctx.textAlign = 'right';
+            ctx.fillText(courseName, 0, 0);
+            ctx.restore();
+        });
+
+        // 绘制Y轴标签
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 5; i++) {
+            const value = Math.round((maxValue / 5) * i);
+            const y = padding + 60 + chartHeight - (chartHeight / 5) * i;
+            ctx.fillText(value, padding - 10, y + 4);
+        }
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = allSelections.length;
+        const pending = allSelections.filter(s => s.status === 1).length;
+        const success = allSelections.filter(s => s.status === 2 && s.lotteryResult === 1).length;
+        const failed = allSelections.filter(s => s.status === 2 && s.lotteryResult !== 1).length;
+
+        document.getElementById('totalSelections').textContent = total;
+        document.getElementById('pendingSelections').textContent = pending;
+        document.getElementById('successSelections').textContent = success;
+        document.getElementById('failedSelections').textContent = failed;
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 导出功能
+        document.getElementById('exportBtn').addEventListener('click', exportData);
+        document.getElementById('exportChartBtn').addEventListener('click', exportChart);
+
+        // 批量删除
+        document.getElementById('batchDeleteBtn').addEventListener('click', batchDelete);
+
+        // 刷新图表
+        document.getElementById('refreshChartBtn').addEventListener('click', function() {
+            calculateCourseStats();
+            renderChart();
+        });
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const courseId = document.getElementById('courseFilter').value;
+        const collegeId = document.getElementById('collegeFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const result = document.getElementById('resultFilter').value;
+
+        filteredSelections = allSelections.filter(selection => {
+            let match = true;
+
+            if (courseId) {
+                match = match && selection.course.id == courseId;
+            }
+
+            if (collegeId) {
+                match = match && selection.course.college?.id == collegeId;
+            }
+
+            if (status) {
+                match = match && selection.status == status;
+            }
+
+            if (result !== '' && selection.status === 2) {
+                match = match && selection.lotteryResult == result;
+            }
+
+            return match;
+        });
+
+        renderSelectionTable();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('courseFilter').value = '';
+        document.getElementById('collegeFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('resultFilter').value = '';
+
+        filteredSelections = [...allSelections];
+        renderSelectionTable();
+    }
+
+    // 查看选课详情
+    function viewSelectionDetail(selectionId) {
+        const selection = allSelections.find(s => s.id === selectionId);
+        if (!selection) return;
+
+        const content = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>学生信息</h6>
+                    <p><strong>学号：</strong>${selection.student.studentNo}</p>
+                    <p><strong>姓名：</strong>${selection.student.name}</p>
+                    <p><strong>学院：</strong>${selection.student.college?.name || '未知'}</p>
+                    <p><strong>年级：</strong>${selection.student.grade}</p>
+                    <p><strong>班级：</strong>${selection.student.class}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>课程信息</h6>
+                    <p><strong>课程名称：</strong>${selection.course.name}</p>
+                    <p><strong>课程编码：</strong>${selection.course.courseCode}</p>
+                    <p><strong>开课学院：</strong>${selection.course.college?.name || '未知'}</p>
+                    <p><strong>授课教师：</strong>${selection.course.teacher?.name || '未分配'}</p>
+                    <p><strong>学分：</strong>${selection.course.credits}</p>
+                </div>
+                <div class="col-12">
+                    <h6>选课状态</h6>
+                    <p><strong>申请时间：</strong>${Utils.formatDate(selection.gmtCreate, 'YYYY-MM-DD HH:mm:ss')}</p>
+                    <p><strong>选课状态：</strong>
+                        ${selection.status === 1 ? '<span class="badge bg-warning">申请中</span>' : '<span class="badge bg-info">已确定</span>'}
+                    </p>
+                    <p><strong>抽签结果：</strong>
+                        ${selection.status === 1 ? '<span class="text-muted">待抽签</span>' :
+            (selection.lotteryResult === 1 ? '<span class="badge bg-success">中签</span>' : '<span class="badge bg-danger">未中签</span>')}
+                    </p>
+                </div>
+            </div>
+        `;
+
+        const modal = Utils.createModal('选课详情', content, [
+            { text: '关闭', class: 'btn-secondary', onclick: 'Utils.closeModal()' }
+        ]);
+        Utils.showModal(modal);
+    }
+
+    // 删除选课记录
+    function deleteSelection(selectionId) {
+        const selection = allSelections.find(s => s.id === selectionId);
+        if (!selection) return;
+
+        Utils.confirm(
+            `确定要删除学生"${selection.student.name}"对课程"${selection.course.name}"的选课记录吗？`,
+            async () => {
+                try {
+                    const response = await API.CourseSelection.delete(selectionId);
+                    if (response.code === 200) {
+                        Utils.showMessage('选课记录删除成功', 'success');
+                        await loadAllSelections();
+                        renderSelectionTable();
+                        updateStatistics();
+                        calculateCourseStats();
+                        renderChart();
+                    } else {
+                        Utils.showMessage('删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete selection error:', error);
+                    Utils.showMessage('删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 批量删除
+    function batchDelete() {
+        const selectedCheckboxes = document.querySelectorAll('.selection-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            Utils.showMessage('请选择要删除的记录', 'warning');
+            return;
+        }
+
+        const ids = Array.from(selectedCheckboxes).map(cb => cb.value);
+        Utils.confirm(
+            `确定要删除选中的 ${ids.length} 条选课记录吗？`,
+            async () => {
+                try {
+                    const response = await API.CourseSelection.batchDelete(ids);
+                    if (response.code === 200) {
+                        Utils.showMessage('批量删除成功', 'success');
+                        await loadAllSelections();
+                        renderSelectionTable();
+                        updateStatistics();
+                        calculateCourseStats();
+                        renderChart();
+                    } else {
+                        Utils.showMessage('批量删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Batch delete error:', error);
+                    Utils.showMessage('批量删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 导出数据
+    function exportData() {
+        if (filteredSelections.length === 0) {
+            Utils.showMessage('没有数据可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '学号,学生姓名,课程名称,课程编码,开课学院,选课状态,抽签结果,申请时间\n';
+
+        filteredSelections.forEach(selection => {
+            const status = selection.status === 1 ? '申请中' : '已确定';
+            const result = selection.status === 1 ? '待抽签' :
+                (selection.lotteryResult === 1 ? '中签' : '未中签');
+
+            csvContent += `${selection.student.studentNo},${selection.student.name},${selection.course.name},${selection.course.courseCode},${selection.course.college?.name || ''},${status},${result},${Utils.formatDate(selection.gmtCreate, 'YYYY-MM-DD HH:mm')}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `选课记录_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('数据导出成功', 'success');
+    }
+
+    // 导出图表
+    function exportChart() {
+        const canvas = document.getElementById('courseSelectionChart');
+        const link = document.createElement('a');
+        link.download = `课程选课统计图_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+
+        Utils.showMessage('图表导出成功', 'success');
+    }
+
+    // 导出函数到全局作用域
+    window.viewSelectionDetail = viewSelectionDetail;
+    window.deleteSelection = deleteSelection;
+</script>
+</body>
+</html>

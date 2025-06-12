@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教师管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">系统管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">教师管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">教师管理</h1>
+                <p class="page-description">管理系统中的所有教师信息</p>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">👨‍🏫</div>
+                    <div class="stat-value" id="totalTeachers">0</div>
+                    <div class="stat-label">总教师数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">🏫</div>
+                    <div class="stat-value" id="csTeachers">0</div>
+                    <div class="stat-label">计算机学院</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">⚡</div>
+                    <div class="stat-value" id="eeTeachers">0</div>
+                    <div class="stat-label">电子工程学院</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">📚</div>
+                    <div class="stat-value" id="activeCourses">0</div>
+                    <div class="stat-label">开设课程</div>
+                </div>
+            </div>
+
+            <!-- 操作工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <input type="text"
+                                   class="form-control"
+                                   id="searchInput"
+                                   placeholder="搜索教师编号、姓名...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="collegeFilter">
+                                <option value="">全部学院</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="titleFilter">
+                                <option value="">全部职称</option>
+                                <option value="教授">教授</option>
+                                <option value="副教授">副教授</option>
+                                <option value="讲师">讲师</option>
+                                <option value="助教">助教</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" id="searchBtn">搜索</button>
+                            <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                        </div>
+                        <div class="col-md-2 text-right">
+                            <button class="btn btn-success" id="addTeacherBtn">
+                                <span>➕</span> 添加教师
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 教师列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>教师列表</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="tableContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <p class="text-muted">暂无教师数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 教师编辑模态框 -->
+<div class="modal" id="teacherModal">
+    <div class="modal-dialog" style="max-width: 600px;">
+        <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">添加教师</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="teacherForm">
+                <input type="hidden" id="teacherId">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="teacherNo" class="form-label">教师编号 *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="teacherNo"
+                                   name="teacherNo"
+                                   required
+                                   placeholder="请输入教师编号">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="teacherName" class="form-label">姓名 *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="teacherName"
+                                   name="name"
+                                   required
+                                   placeholder="请输入姓名">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="teacherCollege" class="form-label">所属学院 *</label>
+                            <select class="form-select" id="teacherCollege" name="collegeId" required>
+                                <option value="">请选择学院</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="teacherTitle" class="form-label">职称 *</label>
+                            <select class="form-select" id="teacherTitle" name="title" required>
+                                <option value="">请选择职称</option>
+                                <option value="教授">教授</option>
+                                <option value="副教授">副教授</option>
+                                <option value="讲师">讲师</option>
+                                <option value="助教">助教</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row" id="passwordGroup">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="teacherPassword" class="form-label">初始密码 *</label>
+                            <input type="password"
+                                   class="form-control"
+                                   id="teacherPassword"
+                                   name="password"
+                                   placeholder="默认：123456">
+                            <small class="text-muted">留空则使用默认密码123456</small>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="saveTeacherBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let teachers = [];
+    let filteredTeachers = [];
+    let colleges = [];
+    let isEditing = false;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isSysAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            await Promise.all([
+                loadTeachers(),
+                loadColleges()
+            ]);
+
+            renderCollegeFilters();
+            renderTeacherTable();
+            updateStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载教师列表
+    async function loadTeachers() {
+        try {
+            const response = await API.Teacher.getAll();
+            if (response.code === 200) {
+                teachers = response.data || [];
+                filteredTeachers = [...teachers];
+            }
+        } catch (error) {
+            console.error('Load teachers error:', error);
+            throw error;
+        }
+    }
+
+    // 加载学院列表
+    async function loadColleges() {
+        try {
+            const response = await API.College.getAll();
+            if (response.code === 200) {
+                colleges = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load colleges error:', error);
+        }
+    }
+
+    // 渲染学院筛选器
+    function renderCollegeFilters() {
+        const collegeFilter = document.getElementById('collegeFilter');
+        const teacherCollege = document.getElementById('teacherCollege');
+
+        collegeFilter.innerHTML = '<option value="">全部学院</option>';
+        teacherCollege.innerHTML = '<option value="">请选择学院</option>';
+
+        colleges.forEach(college => {
+            const option1 = document.createElement('option');
+            option1.value = college.id;
+            option1.textContent = college.name;
+            collegeFilter.appendChild(option1);
+
+            const option2 = document.createElement('option');
+            option2.value = college.id;
+            option2.textContent = college.name;
+            teacherCollege.appendChild(option2);
+        });
+    }
+
+    // 渲染教师表格
+    function renderTeacherTable() {
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredTeachers.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            { field: 'teacherNo', title: '教师编号', width: '120px' },
+            { field: 'name', title: '姓名', width: '100px' },
+            {
+                field: 'college',
+                title: '学院',
+                width: '120px',
+                render: (value) => value?.name || '未分配'
+            },
+            { field: 'title', title: '职称', width: '100px' },
+            {
+                field: 'user',
+                title: '用户名',
+                width: '120px',
+                render: (value) => value?.username || '未创建'
+            },
+            {
+                field: 'courseCount',
+                title: '授课数',
+                width: '80px',
+                render: (value, row) => getCourseCount(row.id)
+            },
+            {
+                field: 'gmtCreate',
+                title: '创建时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '180px',
+                render: (value, row) => `
+                        <button class="btn btn-sm btn-primary" onclick="viewTeacherDetail(${row.id})">详情</button>
+                        <button class="btn btn-sm btn-warning ml-1" onclick="editTeacher(${row.id})">编辑</button>
+                        <button class="btn btn-sm btn-danger ml-1" onclick="deleteTeacher(${row.id})">删除</button>
+                    `
+            }
+        ];
+
+        TableUtils.createTable(filteredTeachers, columns, tableContainer);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+
+    // 获取教师授课数量（简化处理）
+    function getCourseCount(teacherId) {
+        // 这里应该从课程数据中统计，简化处理返回随机数
+        return Math.floor(Math.random() * 5) + 1;
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = teachers.length;
+        const csCount = teachers.filter(t => t.college?.code === 'CS').length;
+        const eeCount = teachers.filter(t => t.college?.code === 'EE').length;
+
+        document.getElementById('totalTeachers').textContent = total;
+        document.getElementById('csTeachers').textContent = csCount;
+        document.getElementById('eeTeachers').textContent = eeCount;
+
+        // 这里简化处理活跃课程数
+        document.getElementById('activeCourses').textContent = Math.floor(total * 2);
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 回车搜索
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // 添加教师
+        document.getElementById('addTeacherBtn').addEventListener('click', () => {
+            openTeacherModal();
+        });
+
+        // 保存教师
+        document.getElementById('saveTeacherBtn').addEventListener('click', saveTeacher);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+        const collegeId = document.getElementById('collegeFilter').value;
+        const title = document.getElementById('titleFilter').value;
+
+        filteredTeachers = teachers.filter(teacher => {
+            let match = true;
+
+            if (keyword) {
+                match = match && (
+                    teacher.teacherNo.toLowerCase().includes(keyword) ||
+                    teacher.name.toLowerCase().includes(keyword)
+                );
+            }
+
+            if (collegeId) {
+                match = match && teacher.college?.id == collegeId;
+            }
+
+            if (title) {
+                match = match && teacher.title === title;
+            }
+
+            return match;
+        });
+
+        renderTeacherTable();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('collegeFilter').value = '';
+        document.getElementById('titleFilter').value = '';
+
+        filteredTeachers = [...teachers];
+        renderTeacherTable();
+    }
+
+    // 打开教师编辑模态框
+    function openTeacherModal(teacher = null) {
+        isEditing = !!teacher;
+
+        document.getElementById('modalTitle').textContent = isEditing ? '编辑教师' : '添加教师';
+        document.getElementById('teacherId').value = teacher?.id || '';
+        document.getElementById('teacherNo').value = teacher?.teacherNo || '';
+        document.getElementById('teacherName').value = teacher?.name || '';
+        document.getElementById('teacherCollege').value = teacher?.college?.id || '';
+        document.getElementById('teacherTitle').value = teacher?.title || '';
+        document.getElementById('teacherPassword').value = '';
+
+        // 编辑时隐藏密码字段，教师编号只读
+        document.getElementById('passwordGroup').style.display = isEditing ? 'none' : 'block';
+        document.getElementById('teacherNo').readOnly = isEditing;
+
+        Utils.showModal(document.getElementById('teacherModal'));
+    }
+
+    // 保存教师
+    async function saveTeacher() {
+        const form = document.getElementById('teacherForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        const formData = FormUtils.serialize(form);
+
+        try {
+            const saveBtn = document.getElementById('saveTeacherBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            let response;
+            if (isEditing) {
+                const teacher = {
+                    teacherNo: formData.teacherNo,
+                    name: formData.name,
+                    college: { id: parseInt(formData.collegeId) },
+                    title: formData.title
+                };
+                const teacherId = document.getElementById('teacherId').value;
+                response = await API.Teacher.update(teacherId, teacher);
+            } else {
+                const teacher = {
+                    teacherNo: formData.teacherNo,
+                    name: formData.name,
+                    college: { id: parseInt(formData.collegeId) },
+                    title: formData.title
+                };
+                response = await API.Teacher.create(teacher);
+            }
+
+            if (response && response.code === 200) {
+                Utils.showMessage(isEditing ? '教师更新成功' : '教师创建成功', 'success');
+                closeModal();
+                await loadTeachers();
+                renderTeacherTable();
+                updateStatistics();
+            } else {
+                Utils.showMessage('保存失败: ' + (response?.message || '未知错误'), 'danger');
+            }
+        } catch (error) {
+            console.error('Save teacher error:', error);
+            Utils.showMessage('保存失败: ' + error.message, 'danger');
+        } finally {
+            const saveBtn = document.getElementById('saveTeacherBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
+
+    // 查看教师详情
+    function viewTeacherDetail(teacherId) {
+        const teacher = teachers.find(t => t.id === teacherId);
+        if (!teacher) return;
+
+        const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>教师编号：</strong>${teacher.teacherNo}</p>
+                        <p><strong>姓名：</strong>${teacher.name}</p>
+                        <p><strong>职称：</strong>${teacher.title}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>学院：</strong>${teacher.college?.name || '未分配'}</p>
+                        <p><strong>用户名：</strong>${teacher.user?.username || '未创建'}</p>
+                        <p><strong>授课数量：</strong>${getCourseCount(teacher.id)}门</p>
+                    </div>
+                    <div class="col-12">
+                        <p><strong>创建时间：</strong>${Utils.formatDate(teacher.gmtCreate, 'YYYY-MM-DD HH:mm:ss')}</p>
+                        <p><strong>修改时间：</strong>${Utils.formatDate(teacher.gmtModified, 'YYYY-MM-DD HH:mm:ss')}</p>
+                    </div>
+                </div>
+            `;
+
+        const modal = Utils.createModal('教师详情', content, [
+            { text: '关闭', class: 'btn-secondary', onclick: 'Utils.closeModal()' }
+        ]);
+        Utils.showModal(modal);
+    }
+
+    // 编辑教师
+    function editTeacher(teacherId) {
+        const teacher = teachers.find(t => t.id === teacherId);
+        if (teacher) {
+            openTeacherModal(teacher);
+        }
+    }
+
+    // 删除教师
+    function deleteTeacher(teacherId) {
+        const teacher = teachers.find(t => t.id === teacherId);
+        if (!teacher) return;
+
+        Utils.confirm(
+            `确定要删除教师"${teacher.name}(${teacher.teacherNo})"吗？\n\n⚠️ 删除后，相关的课程将需要重新分配教师！`,
+            async () => {
+                try {
+                    const response = await API.Teacher.delete(teacherId);
+                    if (response.code === 200) {
+                        Utils.showMessage('教师删除成功', 'success');
+                        await loadTeachers();
+                        renderTeacherTable();
+                        updateStatistics();
+                    } else {
+                        Utils.showMessage('删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete teacher error:', error);
+                    Utils.showMessage('删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('teacherForm').reset();
+
+        // 清除验证状态
+        const invalidFields = document.querySelectorAll('.is-invalid');
+        invalidFields.forEach(field => Utils.clearFieldError(field));
+    }
+
+    // 导出函数到全局作用域
+    window.viewTeacherDetail = viewTeacherDetail;
+    window.editTeacher = editTeacher;
+    window.deleteTeacher = deleteTeacher;
+    window.closeModal = closeModal;
+</script>
+</body>
+</html>

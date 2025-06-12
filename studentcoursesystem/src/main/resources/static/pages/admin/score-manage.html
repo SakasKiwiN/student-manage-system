@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成绩管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">系统管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">成绩管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">成绩管理</h1>
+                <p class="page-description">管理系统中所有的课程成绩</p>
+            </div>
+
+            <!-- 成绩统计 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📊</div>
+                    <div class="stat-value" id="totalScores">0</div>
+                    <div class="stat-label">总成绩数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="passedScores">0</div>
+                    <div class="stat-label">及格人次</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">📈</div>
+                    <div class="stat-value" id="averageScore">0</div>
+                    <div class="stat-label">平均分</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #9b59b6; color: white;">🎯</div>
+                    <div class="stat-value" id="passRate">0%</div>
+                    <div class="stat-label">及格率</div>
+                </div>
+            </div>
+
+            <!-- 筛选工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">课程</label>
+                                <select class="form-select" id="courseFilter">
+                                    <option value="">全部课程</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">学院</label>
+                                <select class="form-select" id="collegeFilter">
+                                    <option value="">全部学院</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">成绩等级</label>
+                                <select class="form-select" id="gradeFilter">
+                                    <option value="">全部等级</option>
+                                    <option value="excellent">优秀(90+)</option>
+                                    <option value="good">良好(80-89)</option>
+                                    <option value="average">中等(70-79)</option>
+                                    <option value="pass">及格(60-69)</option>
+                                    <option value="fail">不及格(<60)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">搜索</label>
+                                <input type="text"
+                                       class="form-control"
+                                       id="searchInput"
+                                       placeholder="搜索学号、姓名...">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button class="btn btn-primary" id="searchBtn">搜索</button>
+                            <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                            <button class="btn btn-success ml-2" id="addScoreBtn">添加成绩</button>
+                            <button class="btn btn-warning ml-2" id="batchEditBtn">批量编辑</button>
+                            <button class="btn btn-info ml-2" id="exportBtn">导出成绩</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成绩列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>成绩记录</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="tableContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <p class="text-muted">暂无成绩记录</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 成绩编辑模态框 -->
+<div class="modal" id="scoreModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">添加成绩</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="scoreForm">
+                <input type="hidden" id="scoreId">
+                <div class="form-group">
+                    <label for="studentSelect" class="form-label">学生 *</label>
+                    <select class="form-select" id="studentSelect" name="studentId" required>
+                        <option value="">请选择学生</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="courseSelect" class="form-label">课程 *</label>
+                    <select class="form-select" id="courseSelect" name="courseId" required>
+                        <option value="">请选择课程</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="scoreInput" class="form-label">成绩 *</label>
+                    <input type="number"
+                           class="form-control"
+                           id="scoreInput"
+                           name="score"
+                           required
+                           min="0"
+                           max="100"
+                           step="0.1"
+                           placeholder="0-100">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="saveScoreBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let allScores = [];
+    let filteredScores = [];
+    let courses = [];
+    let colleges = [];
+    let students = [];
+    let isEditing = false;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isSysAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            await Promise.all([
+                loadAllScores(),
+                loadCourses(),
+                loadColleges(),
+                loadStudents()
+            ]);
+
+            renderFilters();
+            renderScoreTable();
+            updateStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载所有成绩记录
+    async function loadAllScores() {
+        try {
+            const response = await API.Score.getAll();
+            if (response.code === 200) {
+                allScores = response.data || [];
+                filteredScores = [...allScores];
+            }
+        } catch (error) {
+            console.error('Load scores error:', error);
+            throw error;
+        }
+    }
+
+    // 加载课程列表
+    async function loadCourses() {
+        try {
+            const response = await API.Course.getAll();
+            if (response.code === 200) {
+                courses = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load courses error:', error);
+        }
+    }
+
+    // 加载学院列表
+    async function loadColleges() {
+        try {
+            const response = await API.College.getAll();
+            if (response.code === 200) {
+                colleges = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load colleges error:', error);
+        }
+    }
+
+    // 加载学生列表
+    async function loadStudents() {
+        try {
+            const response = await API.Student.getAll();
+            if (response.code === 200) {
+                students = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load students error:', error);
+        }
+    }
+
+    // 渲染筛选器
+    function renderFilters() {
+        // 课程筛选器
+        const courseFilter = document.getElementById('courseFilter');
+        courseFilter.innerHTML = '<option value="">全部课程</option>';
+        courses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `${course.name} (${course.courseCode})`;
+            courseFilter.appendChild(option);
+        });
+
+        // 学院筛选器
+        const collegeFilter = document.getElementById('collegeFilter');
+        collegeFilter.innerHTML = '<option value="">全部学院</option>';
+        colleges.forEach(college => {
+            const option = document.createElement('option');
+            option.value = college.id;
+            option.textContent = college.name;
+            collegeFilter.appendChild(option);
+        });
+
+        // 模态框中的选择器
+        renderModalSelectors();
+    }
+
+    // 渲染模态框选择器
+    function renderModalSelectors() {
+        // 学生选择器
+        const studentSelect = document.getElementById('studentSelect');
+        studentSelect.innerHTML = '<option value="">请选择学生</option>';
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = `${student.name} (${student.studentNo})`;
+            studentSelect.appendChild(option);
+        });
+
+        // 课程选择器
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = '<option value="">请选择课程</option>';
+        courses.forEach(course => {
+            const option = document.createElement('option');
+            option.value = course.id;
+            option.textContent = `${course.name} (${course.courseCode})`;
+            courseSelect.appendChild(option);
+        });
+    }
+
+    // 渲染成绩表格
+    function renderScoreTable() {
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredScores.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            { field: 'student.studentNo', title: '学号', width: '120px' },
+            { field: 'student.name', title: '学生姓名', width: '100px' },
+            { field: 'course.name', title: '课程名称', width: '150px' },
+            { field: 'course.courseCode', title: '课程编码', width: '120px' },
+            {
+                field: 'course.college.name',
+                title: '开课学院',
+                width: '120px',
+                render: (value) => value || '未知'
+            },
+            {
+                field: 'score',
+                title: '成绩',
+                width: '80px',
+                render: (value) => {
+                    const grade = getGradeLevel(value);
+                    return `<span class="${grade.class}">${value}</span>`;
+                }
+            },
+            {
+                field: 'score',
+                title: '等级',
+                width: '80px',
+                render: (value) => {
+                    const grade = getGradeLevel(value);
+                    return `<span class="${grade.class}">${grade.letter}</span>`;
+                }
+            },
+            {
+                field: 'gmtCreate',
+                title: '录入时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD HH:mm')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '120px',
+                render: (value, row) => `
+                    <button class="btn btn-sm btn-warning" onclick="editScore(${row.id})">编辑</button>
+                    <button class="btn btn-sm btn-danger ml-1" onclick="deleteScore(${row.id})">删除</button>
+                `
+            }
+        ];
+
+        TableUtils.createTable(filteredScores, columns, tableContainer);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+
+    // 获取成绩等级
+    function getGradeLevel(score) {
+        if (score >= 90) return { letter: 'A', class: 'text-success' };
+        if (score >= 80) return { letter: 'B', class: 'text-info' };
+        if (score >= 70) return { letter: 'C', class: 'text-warning' };
+        if (score >= 60) return { letter: 'D', class: 'text-secondary' };
+        return { letter: 'F', class: 'text-danger' };
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = allScores.length;
+        const passed = allScores.filter(s => s.score >= 60).length;
+        const totalScore = allScores.reduce((sum, s) => sum + s.score, 0);
+        const average = total > 0 ? (totalScore / total).toFixed(1) : 0;
+        const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : 0;
+
+        document.getElementById('totalScores').textContent = total;
+        document.getElementById('passedScores').textContent = passed;
+        document.getElementById('averageScore').textContent = average;
+        document.getElementById('passRate').textContent = passRate + '%';
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 添加成绩
+        document.getElementById('addScoreBtn').addEventListener('click', () => {
+            openScoreModal();
+        });
+
+        // 保存成绩
+        document.getElementById('saveScoreBtn').addEventListener('click', saveScore);
+
+        // 导出功能
+        document.getElementById('exportBtn').addEventListener('click', exportScores);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const courseId = document.getElementById('courseFilter').value;
+        const collegeId = document.getElementById('collegeFilter').value;
+        const grade = document.getElementById('gradeFilter').value;
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+        filteredScores = allScores.filter(score => {
+            let match = true;
+
+            if (courseId) {
+                match = match && score.course.id == courseId;
+            }
+
+            if (collegeId) {
+                match = match && score.course.college?.id == collegeId;
+            }
+
+            if (grade) {
+                switch (grade) {
+                    case 'excellent':
+                        match = match && score.score >= 90;
+                        break;
+                    case 'good':
+                        match = match && score.score >= 80 && score.score < 90;
+                        break;
+                    case 'average':
+                        match = match && score.score >= 70 && score.score < 80;
+                        break;
+                    case 'pass':
+                        match = match && score.score >= 60 && score.score < 70;
+                        break;
+                    case 'fail':
+                        match = match && score.score < 60;
+                        break;
+                }
+            }
+
+            if (keyword) {
+                match = match && (
+                    score.student.studentNo.toLowerCase().includes(keyword) ||
+                    score.student.name.toLowerCase().includes(keyword)
+                );
+            }
+
+            return match;
+        });
+
+        renderScoreTable();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('courseFilter').value = '';
+        document.getElementById('collegeFilter').value = '';
+        document.getElementById('gradeFilter').value = '';
+        document.getElementById('searchInput').value = '';
+
+        filteredScores = [...allScores];
+        renderScoreTable();
+    }
+
+    // 打开成绩编辑模态框
+    function openScoreModal(score = null) {
+        isEditing = !!score;
+
+        document.getElementById('modalTitle').textContent = isEditing ? '编辑成绩' : '添加成绩';
+        document.getElementById('scoreId').value = score?.id || '';
+        document.getElementById('studentSelect').value = score?.student.id || '';
+        document.getElementById('courseSelect').value = score?.course.id || '';
+        document.getElementById('scoreInput').value = score?.score || '';
+
+        Utils.showModal(document.getElementById('scoreModal'));
+    }
+
+    // 保存成绩
+    async function saveScore() {
+        const form = document.getElementById('scoreForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        const formData = FormUtils.serialize(form);
+
+        try {
+            const saveBtn = document.getElementById('saveScoreBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            let response;
+            if (isEditing) {
+                const scoreId = document.getElementById('scoreId').value;
+                response = await API.Score.update(scoreId, {
+                    score: parseFloat(formData.score)
+                });
+            } else {
+                response = await API.Score.input(
+                    parseInt(formData.studentId),
+                    parseInt(formData.courseId),
+                    parseFloat(formData.score)
+                );
+            }
+
+            if (response.code === 200) {
+                Utils.showMessage(isEditing ? '成绩更新成功' : '成绩添加成功', 'success');
+                closeModal();
+                await loadAllScores();
+                renderScoreTable();
+                updateStatistics();
+            } else {
+                Utils.showMessage('保存失败: ' + response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Save score error:', error);
+            Utils.showMessage('保存失败: ' + error.message, 'danger');
+        } finally {
+            const saveBtn = document.getElementById('saveScoreBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
+
+    // 编辑成绩
+    function editScore(scoreId) {
+        const score = allScores.find(s => s.id === scoreId);
+        if (score) {
+            openScoreModal(score);
+        }
+    }
+
+    // 删除成绩
+    function deleteScore(scoreId) {
+        const score = allScores.find(s => s.id === scoreId);
+        if (!score) return;
+
+        Utils.confirm(
+            `确定要删除学生"${score.student.name}"在课程"${score.course.name}"的成绩记录吗？`,
+            async () => {
+                try {
+                    const response = await API.Score.delete(scoreId);
+                    if (response.code === 200) {
+                        Utils.showMessage('成绩删除成功', 'success');
+                        await loadAllScores();
+                        renderScoreTable();
+                        updateStatistics();
+                    } else {
+                        Utils.showMessage('删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete score error:', error);
+                    Utils.showMessage('删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 导出成绩
+    function exportScores() {
+        if (filteredScores.length === 0) {
+            Utils.showMessage('没有数据可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '学号,学生姓名,课程名称,课程编码,开课学院,成绩,等级,录入时间\n';
+
+        filteredScores.forEach(score => {
+            const grade = getGradeLevel(score.score);
+            csvContent += `${score.student.studentNo},${score.student.name},${score.course.name},${score.course.courseCode},${score.course.college?.name || ''},${score.score},${grade.letter},${Utils.formatDate(score.gmtCreate, 'YYYY-MM-DD HH:mm')}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `成绩记录_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('成绩导出成功', 'success');
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('scoreForm').reset();
+    }
+
+    // 导出函数到全局作用域
+    window.editScore = editScore;
+    window.deleteScore = deleteScore;
+    window.closeModal = closeModal;
+</script>
+</body>
+</html>

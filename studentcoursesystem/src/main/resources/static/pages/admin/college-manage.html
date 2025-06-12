@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学院管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <!-- 侧边栏占位，实际会通过JS动态插入 -->
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <!-- 顶部导航栏 -->
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">系统管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">学院管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">学院管理</h1>
+                <p class="page-description">管理系统中的所有学院信息</p>
+            </div>
+
+            <!-- 操作工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <input type="text"
+                                   class="form-control"
+                                   id="searchInput"
+                                   placeholder="搜索学院名称或编码..."
+                                   style="width: 300px;">
+                            <button class="btn btn-primary ml-2" id="searchBtn">搜索</button>
+                        </div>
+                        <button class="btn btn-success" id="addCollegeBtn">
+                            <span>➕</span> 添加学院
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 学院列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>学院列表</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="tableContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <p class="text-muted">暂无学院数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 学院编辑模态框 -->
+<div class="modal" id="collegeModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">添加学院</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="collegeForm">
+                <input type="hidden" id="collegeId">
+                <div class="form-group">
+                    <label for="collegeName" class="form-label">学院名称 *</label>
+                    <input type="text"
+                           class="form-control"
+                           id="collegeName"
+                           name="name"
+                           required
+                           placeholder="请输入学院名称">
+                </div>
+                <div class="form-group">
+                    <label for="collegeCode" class="form-label">学院编码 *</label>
+                    <input type="text"
+                           class="form-control"
+                           id="collegeCode"
+                           name="code"
+                           required
+                           placeholder="请输入学院编码（如：CS）">
+                    <small class="text-muted">学院编码用于系统内部标识，建议使用英文缩写</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="saveCollegeBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let colleges = [];
+    let filteredColleges = [];
+    let isEditing = false;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageStructure();
+        loadColleges();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        // 检查权限
+        if (!AuthManager.isSysAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面结构
+    function loadPageStructure() {
+        // 加载侧边栏和顶部导航
+        const sidebar = document.getElementById('sidebar');
+        const navbarRight = document.getElementById('navbarRight');
+
+        // 这里应该插入通用的侧边栏和用户信息
+        // 为了简化，直接添加基本的用户信息
+        navbarRight.innerHTML = `
+                <div class="user-dropdown">
+                    <button class="user-dropdown-toggle">
+                        <div class="user-dropdown-avatar">👤</div>
+                        <span class="user-dropdown-name">${AuthManager.getCurrentUser()?.username || '管理员'}</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="user-dropdown-menu">
+                        <a href="/pages/common/profile.html" class="dropdown-item">个人信息</a>
+                        <a href="/pages/common/change-password.html" class="dropdown-item">修改密码</a>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item" onclick="logout()">退出登录</button>
+                    </div>
+                </div>
+            `;
+    }
+
+    // 加载学院列表
+    async function loadColleges() {
+        try {
+            Utils.hideLoading();
+            const loading = Utils.showLoading(document.getElementById('tableContainer').parentElement);
+
+            const response = await API.College.getAll();
+
+            Utils.hideLoading();
+
+            if (response.code === 200) {
+                colleges = response.data || [];
+                filteredColleges = [...colleges];
+                renderCollegeTable();
+            } else {
+                Utils.showMessage('加载学院数据失败: ' + response.message, 'danger');
+                showEmptyState();
+            }
+        } catch (error) {
+            Utils.hideLoading();
+            console.error('Load colleges error:', error);
+            Utils.showMessage('加载学院数据失败', 'danger');
+            showEmptyState();
+        }
+    }
+
+    // 渲染学院表格
+    function renderCollegeTable() {
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredColleges.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            { field: 'id', title: 'ID', width: '80px' },
+            { field: 'name', title: '学院名称' },
+            { field: 'code', title: '学院编码', width: '120px' },
+            { field: 'gmtCreate', title: '创建时间', width: '180px', render: (value) => Utils.formatDate(value, 'YYYY-MM-DD HH:mm') },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '150px',
+                render: (value, row) => `
+                        <button class="btn btn-sm btn-warning" onclick="editCollege(${row.id})">编辑</button>
+                        <button class="btn btn-sm btn-danger ml-1" onclick="deleteCollege(${row.id})">删除</button>
+                    `
+            }
+        ];
+
+        TableUtils.createTable(filteredColleges, columns, tableContainer);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+
+        const performSearch = () => {
+            const keyword = searchInput.value.trim().toLowerCase();
+            if (keyword) {
+                filteredColleges = colleges.filter(college =>
+                    college.name.toLowerCase().includes(keyword) ||
+                    college.code.toLowerCase().includes(keyword)
+                );
+            } else {
+                filteredColleges = [...colleges];
+            }
+            renderCollegeTable();
+        };
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // 添加学院
+        document.getElementById('addCollegeBtn').addEventListener('click', () => {
+            openCollegeModal();
+        });
+
+        // 保存学院
+        document.getElementById('saveCollegeBtn').addEventListener('click', () => {
+            saveCollege();
+        });
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 打开学院编辑模态框
+    function openCollegeModal(college = null) {
+        isEditing = !!college;
+
+        document.getElementById('modalTitle').textContent = isEditing ? '编辑学院' : '添加学院';
+        document.getElementById('collegeId').value = college?.id || '';
+        document.getElementById('collegeName').value = college?.name || '';
+        document.getElementById('collegeCode').value = college?.code || '';
+
+        // 如果是编辑模式，编码字段只读
+        document.getElementById('collegeCode').readOnly = isEditing;
+
+        Utils.showModal(document.getElementById('collegeModal'));
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('collegeForm').reset();
+
+        // 清除验证状态
+        const invalidFields = document.querySelectorAll('.is-invalid');
+        invalidFields.forEach(field => Utils.clearFieldError(field));
+    }
+
+    // 保存学院
+    async function saveCollege() {
+        const form = document.getElementById('collegeForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        const formData = FormUtils.serialize(form);
+        const college = {
+            name: formData.name.trim(),
+            code: formData.code.trim().toUpperCase()
+        };
+
+        // 验证编码格式
+        if (!/^[A-Z]{2,10}$/.test(college.code)) {
+            Utils.showFieldError(document.getElementById('collegeCode'), '学院编码必须是2-10位大写英文字母');
+            return;
+        }
+
+        try {
+            const saveBtn = document.getElementById('saveCollegeBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            let response;
+            if (isEditing) {
+                const collegeId = document.getElementById('collegeId').value;
+                response = await API.College.update(collegeId, college);
+            } else {
+                response = await API.College.create(college);
+            }
+
+            if (response.code === 200) {
+                Utils.showMessage(isEditing ? '学院更新成功' : '学院创建成功', 'success');
+                closeModal();
+                loadColleges();
+            } else {
+                Utils.showMessage('保存失败: ' + response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Save college error:', error);
+            Utils.showMessage('保存失败: ' + error.message, 'danger');
+        } finally {
+            const saveBtn = document.getElementById('saveCollegeBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
+
+    // 编辑学院
+    function editCollege(collegeId) {
+        const college = colleges.find(c => c.id === collegeId);
+        if (college) {
+            openCollegeModal(college);
+        }
+    }
+
+    // 删除学院
+    function deleteCollege(collegeId) {
+        const college = colleges.find(c => c.id === collegeId);
+        if (!college) return;
+
+        Utils.confirm(
+            `确定要删除学院"${college.name}"吗？\n\n⚠️ 删除后，该学院下的所有教师、学生和课程关联将受到影响！`,
+            async () => {
+                try {
+                    const response = await API.College.delete(collegeId);
+                    if (response.code === 200) {
+                        Utils.showMessage('学院删除成功', 'success');
+                        loadColleges();
+                    } else {
+                        Utils.showMessage('删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete college error:', error);
+                    Utils.showMessage('删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 退出登录
+    async function logout() {
+        Utils.confirm('确定要退出登录吗？', async () => {
+            await AuthManager.logout();
+        });
+    }
+
+    // 导出函数到全局作用域
+    window.editCollege = editCollege;
+    window.deleteCollege = deleteCollege;
+    window.closeModal = closeModal;
+    window.logout = logout;
+</script>
+</body>
+</html>

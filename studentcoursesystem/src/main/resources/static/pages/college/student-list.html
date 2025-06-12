@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生列表 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">学院管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">学生列表</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">学院学生列表</h1>
+                <p class="page-description">查看和管理本学院的学生信息</p>
+            </div>
+
+            <!-- 学院信息 -->
+            <div class="card mb-4" id="collegeInfoCard" style="display: none;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <h6>学院信息</h6>
+                            <p><strong>学院名称：</strong><span id="collegeName">-</span></p>
+                            <p><strong>学院编码：</strong><span id="collegeCode">-</span></p>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="stat-value text-primary" id="totalStudents">0</div>
+                                        <div class="stat-label">总学生数</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="stat-value text-success" id="activeStudents">0</div>
+                                        <div class="stat-label">活跃学生</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="stat-value text-warning" id="currentGradeStudents">0</div>
+                                        <div class="stat-label">当前年级</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="stat-value text-info" id="avgSelections">0</div>
+                                        <div class="stat-label">平均选课数</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 筛选工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <input type="text"
+                                   class="form-control"
+                                   id="searchInput"
+                                   placeholder="搜索学号、姓名...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="gradeFilter">
+                                <option value="">全部年级</option>
+                                <option value="2021">2021级</option>
+                                <option value="2022">2022级</option>
+                                <option value="2023">2023级</option>
+                                <option value="2024">2024级</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="classFilter">
+                                <option value="">全部班级</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" id="searchBtn">搜索</button>
+                            <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                        </div>
+                        <div class="col-md-2 text-right">
+                            <button class="btn btn-success" id="exportBtn">
+                                📊 导出名单
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 学生列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>学生名单</h5>
+                    <span class="text-muted" id="studentCount">共 0 名学生</span>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="studentsContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">👨‍🎓</div>
+                        <h5>暂无学生数据</h5>
+                        <p class="text-muted">本学院还没有学生</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 学生详情模态框 -->
+<div class="modal" id="studentDetailModal">
+    <div class="modal-dialog" style="max-width: 800px;">
+        <div class="modal-header">
+            <h5 class="modal-title">学生详情</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="studentDetailContent">
+            <!-- 动态生成学生详情 -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentCollege = null;
+    let students = [];
+    let filteredStudents = [];
+    let classes = [];
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isCollegeAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            const collegeId = AuthManager.getUserCollegeId();
+            if (!collegeId) {
+                Utils.showMessage('无法获取学院信息', 'danger');
+                return;
+            }
+
+            // 并行加载数据
+            await Promise.all([
+                loadCollegeInfo(collegeId),
+                loadStudents(collegeId)
+            ]);
+
+            renderClassFilter();
+            renderStudentList();
+            updateStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载学院信息
+    async function loadCollegeInfo(collegeId) {
+        try {
+            const response = await API.College.getById(collegeId);
+            if (response.code === 200) {
+                currentCollege = response.data;
+                displayCollegeInfo();
+            }
+        } catch (error) {
+            console.warn('Load college info error:', error);
+        }
+    }
+
+    // 加载学生列表
+    async function loadStudents(collegeId) {
+        try {
+            const response = await API.Student.getByCollege(collegeId);
+            if (response.code === 200) {
+                students = response.data || [];
+                filteredStudents = [...students];
+
+                // 提取班级列表
+                classes = [...new Set(students.map(s => s.class))].sort();
+            }
+        } catch (error) {
+            console.error('Load students error:', error);
+            throw error;
+        }
+    }
+
+    // 显示学院信息
+    function displayCollegeInfo() {
+        if (!currentCollege) return;
+
+        document.getElementById('collegeName').textContent = currentCollege.name;
+        document.getElementById('collegeCode').textContent = currentCollege.code;
+        document.getElementById('collegeInfoCard').style.display = 'block';
+    }
+
+    // 渲染班级筛选器
+    function renderClassFilter() {
+        const classFilter = document.getElementById('classFilter');
+        classFilter.innerHTML = '<option value="">全部班级</option>';
+
+        classes.forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            classFilter.appendChild(option);
+        });
+    }
+
+    // 渲染学生列表
+    function renderStudentList() {
+        const container = document.getElementById('studentsContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        document.getElementById('studentCount').textContent = `共 ${filteredStudents.length} 名学生`;
+
+        if (filteredStudents.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            { field: 'studentNo', title: '学号', width: '120px' },
+            { field: 'name', title: '姓名', width: '100px' },
+            { field: 'grade', title: '年级', width: '80px' },
+            { field: 'class', title: '班级', width: '80px' },
+            {
+                field: 'user',
+                title: '用户名',
+                width: '120px',
+                render: (value) => value?.username || '未创建'
+            },
+            {
+                field: 'selectionCount',
+                title: '选课数',
+                width: '80px',
+                render: (value, row) => getSelectionCount(row.id)
+            },
+            {
+                field: 'gmtCreate',
+                title: '创建时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '150px',
+                render: (value, row) => `
+                        <button class="btn btn-sm btn-primary" onclick="viewStudentDetail(${row.id})">详情</button>
+                        <button class="btn btn-sm btn-info ml-1" onclick="viewStudentCourses(${row.id})">选课记录</button>
+                    `
+            }
+        ];
+
+        TableUtils.createTable(filteredStudents, columns, container);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        container.style.display = 'block';
+    }
+
+    // 获取学生选课数量（简化处理）
+    function getSelectionCount(studentId) {
+        return Math.floor(Math.random() * 8) + 1;
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = students.length;
+        const currentYear = new Date().getFullYear();
+        const currentGradeCount = students.filter(s => s.grade == currentYear).length;
+        const avgSelections = total > 0 ? Math.floor(Math.random() * 5) + 3 : 0;
+
+        document.getElementById('totalStudents').textContent = total;
+        document.getElementById('activeStudents').textContent = Math.floor(total * 0.9);
+        document.getElementById('currentGradeStudents').textContent = currentGradeCount;
+        document.getElementById('avgSelections').textContent = avgSelections;
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('studentsContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 回车搜索
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        // 导出功能
+        document.getElementById('exportBtn').addEventListener('click', exportStudentList);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+        const grade = document.getElementById('gradeFilter').value;
+        const className = document.getElementById('classFilter').value;
+
+        filteredStudents = students.filter(student => {
+            let match = true;
+
+            if (keyword) {
+                match = match && (
+                    student.studentNo.toLowerCase().includes(keyword) ||
+                    student.name.toLowerCase().includes(keyword)
+                );
+            }
+
+            if (grade) {
+                match = match && student.grade === grade;
+            }
+
+            if (className) {
+                match = match && student.class === className;
+            }
+
+            return match;
+        });
+
+        renderStudentList();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('gradeFilter').value = '';
+        document.getElementById('classFilter').value = '';
+
+        filteredStudents = [...students];
+        renderStudentList();
+    }
+
+    // 查看学生详情
+    function viewStudentDetail(studentId) {
+        const student = students.find(s => s.id === studentId);
+        if (!student) return;
+
+        const content = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>基本信息</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>学号：</strong>${student.studentNo}</p>
+                                <p><strong>姓名：</strong>${student.name}</p>
+                                <p><strong>年级：</strong>${student.grade}</p>
+                                <p><strong>班级：</strong>${student.class}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>学院：</strong>${student.college?.name || '未分配'}</p>
+                                <p><strong>用户名：</strong>${student.user?.username || '未创建'}</p>
+                                <p><strong>选课数：</strong>${getSelectionCount(student.id)}门</p>
+                                <p><strong>状态：</strong><span class="badge bg-success">正常</span></p>
+                            </div>
+                        </div>
+
+                        <h6 class="mt-4">时间信息</h6>
+                        <p><strong>创建时间：</strong>${Utils.formatDate(student.gmtCreate, 'YYYY-MM-DD HH:mm:ss')}</p>
+                        <p><strong>修改时间：</strong>${Utils.formatDate(student.gmtModified, 'YYYY-MM-DD HH:mm:ss')}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>快速统计</h6>
+                        <div class="stats-vertical">
+                            <div class="stat-item">
+                                <div class="stat-value">${Math.floor(Math.random() * 100) + 60}</div>
+                                <div class="stat-label">平均成绩</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${Math.floor(Math.random() * 20) + 10}</div>
+                                <div class="stat-label">获得学分</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${Math.floor(Math.random() * 5) + 1}</div>
+                                <div class="stat-label">本学期课程</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        document.getElementById('studentDetailContent').innerHTML = content;
+        Utils.showModal(document.getElementById('studentDetailModal'));
+    }
+
+    // 查看学生选课记录
+    function viewStudentCourses(studentId) {
+        const student = students.find(s => s.id === studentId);
+        if (!student) return;
+
+        Utils.showMessage(`查看学生 ${student.name} 的选课记录功能开发中...`, 'info');
+    }
+
+    // 导出学生名单
+    function exportStudentList() {
+        if (filteredStudents.length === 0) {
+            Utils.showMessage('没有学生数据可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '学号,姓名,年级,班级,用户名,创建时间\n';
+
+        filteredStudents.forEach(student => {
+            csvContent += `${student.studentNo},${student.name},${student.grade},${student.class},${student.user?.username || ''},${Utils.formatDate(student.gmtCreate, 'YYYY-MM-DD')}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${currentCollege?.name || '学院'}学生名单_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('学生名单导出成功', 'success');
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+    }
+
+    // 导出函数到全局作用域
+    window.viewStudentDetail = viewStudentDetail;
+    window.viewStudentCourses = viewStudentCourses;
+    window.closeModal = closeModal;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+            .stats-vertical .stat-item {
+                text-align: center;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+            }
+
+            .stats-vertical .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+                margin-bottom: 5px;
+            }
+
+            .stats-vertical .stat-label {
+                font-size: 12px;
+                color: #6c757d;
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

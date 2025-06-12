@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程管理 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">学院管理</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">课程管理</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">课程管理</h1>
+                <p class="page-description">管理学院开设的所有课程</p>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📚</div>
+                    <div class="stat-value" id="totalCourses">-</div>
+                    <div class="stat-label">总课程数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="activeCourses">-</div>
+                    <div class="stat-label">启用课程</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">👥</div>
+                    <div class="stat-value" id="totalSelections">-</div>
+                    <div class="stat-label">总选课数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e74c3c; color: white;">⏳</div>
+                    <div class="stat-value" id="pendingLottery">-</div>
+                    <div class="stat-label">待抽签</div>
+                </div>
+            </div>
+
+            <!-- 操作工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <input type="text"
+                                   class="form-control"
+                                   id="searchInput"
+                                   placeholder="搜索课程名称或编码...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="statusFilter">
+                                <option value="">全部状态</option>
+                                <option value="1">启用</option>
+                                <option value="0">停用</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="teacherFilter">
+                                <option value="">全部教师</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" id="searchBtn">搜索</button>
+                            <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                        </div>
+                        <div class="col-md-2 text-right">
+                            <button class="btn btn-success" id="addCourseBtn">
+                                <span>➕</span> 添加课程
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 课程列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>课程列表</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="tableContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <p class="text-muted">暂无课程数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 课程编辑模态框 -->
+<div class="modal" id="courseModal">
+    <div class="modal-dialog" style="max-width: 600px;">
+        <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">添加课程</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="courseForm">
+                <input type="hidden" id="courseId">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="courseCode" class="form-label">课程编码 *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="courseCode"
+                                   name="courseCode"
+                                   required
+                                   placeholder="如：CS101">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="courseName" class="form-label">课程名称 *</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="courseName"
+                                   name="name"
+                                   required
+                                   placeholder="请输入课程名称">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="courseCredits" class="form-label">学分 *</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="courseCredits"
+                                   name="credits"
+                                   required
+                                   min="1"
+                                   max="10"
+                                   placeholder="1-10">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="maxStudents" class="form-label">最大选课人数 *</label>
+                            <input type="number"
+                                   class="form-control"
+                                   id="maxStudents"
+                                   name="maxStudents"
+                                   required
+                                   min="1"
+                                   max="200"
+                                   placeholder="1-200">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="courseTeacher" class="form-label">授课教师 *</label>
+                            <select class="form-select" id="courseTeacher" name="teacherId" required>
+                                <option value="">请选择教师</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="courseStatus" class="form-label">课程状态 *</label>
+                            <select class="form-select" id="courseStatus" name="status" required>
+                                <option value="1">启用</option>
+                                <option value="0">停用</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="courseDescription" class="form-label">课程描述</label>
+                    <textarea class="form-control"
+                              id="courseDescription"
+                              name="description"
+                              rows="3"
+                              placeholder="请输入课程描述..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="saveCourseBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentCollege = null;
+    let courses = [];
+    let filteredCourses = [];
+    let teachers = [];
+    let isEditing = false;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isCollegeAdmin()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            currentCollege = AuthManager.getUserCollegeId();
+            if (!currentCollege) {
+                Utils.showMessage('无法获取学院信息', 'danger');
+                return;
+            }
+
+            await Promise.all([
+                loadCourses(),
+                loadTeachers()
+            ]);
+
+            renderTeacherFilter();
+            renderTeacherSelect();
+            renderCourseTable();
+            loadStatistics();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载课程列表
+    async function loadCourses() {
+        try {
+            const response = await API.Course.getByCollege(currentCollege);
+            if (response.code === 200) {
+                courses = response.data || [];
+                filteredCourses = [...courses];
+            }
+        } catch (error) {
+            console.error('Load courses error:', error);
+            throw error;
+        }
+    }
+
+    // 加载教师列表
+    async function loadTeachers() {
+        try {
+            const response = await API.Teacher.getByCollege(currentCollege);
+            if (response.code === 200) {
+                teachers = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load teachers error:', error);
+        }
+    }
+
+    // 加载统计数据
+    async function loadStatistics() {
+        try {
+            const activeCourses = courses.filter(c => c.status === 1).length;
+            document.getElementById('totalCourses').textContent = courses.length;
+            document.getElementById('activeCourses').textContent = activeCourses;
+
+            // 加载选课统计
+            const statsResponse = await API.CourseSelection.getStatistics();
+            if (statsResponse.code === 200) {
+                const stats = statsResponse.data;
+                const collegeStats = Object.entries(stats)
+                    .filter(([courseId]) => courses.some(c => c.id == courseId))
+                    .reduce((sum, [, count]) => sum + count, 0);
+
+                document.getElementById('totalSelections').textContent = collegeStats;
+            }
+        } catch (error) {
+            console.warn('Load statistics error:', error);
+        }
+    }
+
+    // 渲染教师筛选器
+    function renderTeacherFilter() {
+        const teacherFilter = document.getElementById('teacherFilter');
+        teacherFilter.innerHTML = '<option value="">全部教师</option>';
+
+        teachers.forEach(teacher => {
+            const option = document.createElement('option');
+            option.value = teacher.id;
+            option.textContent = teacher.name;
+            teacherFilter.appendChild(option);
+        });
+    }
+
+    // 渲染教师选择器
+    function renderTeacherSelect() {
+        const teacherSelect = document.getElementById('courseTeacher');
+        teacherSelect.innerHTML = '<option value="">请选择教师</option>';
+
+        teachers.forEach(teacher => {
+            const option = document.createElement('option');
+            option.value = teacher.id;
+            option.textContent = `${teacher.name} (${teacher.title})`;
+            teacherSelect.appendChild(option);
+        });
+    }
+
+    // 渲染课程表格
+    function renderCourseTable() {
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredCourses.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            { field: 'courseCode', title: '课程编码', width: '100px' },
+            { field: 'name', title: '课程名称' },
+            { field: 'credits', title: '学分', width: '80px' },
+            {
+                field: 'teacher',
+                title: '授课教师',
+                width: '120px',
+                render: (value) => value?.name || '未分配'
+            },
+            { field: 'maxStudents', title: '最大人数', width: '100px' },
+            {
+                field: 'status',
+                title: '状态',
+                width: '80px',
+                render: (value) => value === 1 ?
+                    '<span class="badge bg-success">启用</span>' :
+                    '<span class="badge bg-secondary">停用</span>'
+            },
+            {
+                field: 'gmtCreate',
+                title: '创建时间',
+                width: '150px',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD')
+            },
+            {
+                field: 'actions',
+                title: '操作',
+                width: '200px',
+                render: (value, row) => `
+                        <button class="btn btn-sm btn-primary" onclick="editCourse(${row.id})">编辑</button>
+                        <button class="btn btn-sm btn-info ml-1" onclick="setPrerequisites(${row.id})">先修</button>
+                        <button class="btn btn-sm btn-danger ml-1" onclick="deleteCourse(${row.id})">删除</button>
+                    `
+            }
+        ];
+
+        TableUtils.createTable(filteredCourses, columns, tableContainer);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        tableContainer.style.display = 'block';
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 搜索功能
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const performSearch = () => {
+            const keyword = searchInput.value.trim().toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const teacherId = document.getElementById('teacherFilter').value;
+
+            filteredCourses = courses.filter(course => {
+                let match = true;
+
+                if (keyword) {
+                    match = match && (
+                        course.name.toLowerCase().includes(keyword) ||
+                        course.courseCode.toLowerCase().includes(keyword)
+                    );
+                }
+
+                if (status !== '') {
+                    match = match && course.status == status;
+                }
+
+                if (teacherId) {
+                    match = match && course.teacher?.id == teacherId;
+                }
+
+                return match;
+            });
+
+            renderCourseTable();
+        };
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('teacherFilter').value = '';
+            filteredCourses = [...courses];
+            renderCourseTable();
+        });
+
+        // 添加课程
+        document.getElementById('addCourseBtn').addEventListener('click', () => {
+            openCourseModal();
+        });
+
+        // 保存课程
+        document.getElementById('saveCourseBtn').addEventListener('click', saveCourse);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 打开课程编辑模态框
+    function openCourseModal(course = null) {
+        isEditing = !!course;
+
+        document.getElementById('modalTitle').textContent = isEditing ? '编辑课程' : '添加课程';
+        document.getElementById('courseId').value = course?.id || '';
+        document.getElementById('courseCode').value = course?.courseCode || '';
+        document.getElementById('courseName').value = course?.name || '';
+        document.getElementById('courseCredits').value = course?.credits || '';
+        document.getElementById('maxStudents').value = course?.maxStudents || '';
+        document.getElementById('courseTeacher').value = course?.teacher?.id || '';
+        document.getElementById('courseStatus').value = course?.status ?? 1;
+        document.getElementById('courseDescription').value = course?.description || '';
+
+        // 如果是编辑模式，课程编码只读
+        document.getElementById('courseCode').readOnly = isEditing;
+
+        Utils.showModal(document.getElementById('courseModal'));
+    }
+
+    // 保存课程
+    async function saveCourse() {
+        const form = document.getElementById('courseForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        const formData = FormUtils.serialize(form);
+        const courseData = {
+            courseCode: formData.courseCode.trim(),
+            name: formData.name.trim(),
+            credits: parseInt(formData.credits),
+            maxStudents: parseInt(formData.maxStudents),
+            teacherId: parseInt(formData.teacherId),
+            collegeId: currentCollege,
+            status: parseInt(formData.status),
+            description: formData.description.trim()
+        };
+
+        try {
+            const saveBtn = document.getElementById('saveCourseBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            let response;
+            if (isEditing) {
+                const courseId = document.getElementById('courseId').value;
+                response = await API.Course.update(courseId, courseData);
+            } else {
+                response = await API.Course.create(courseData);
+            }
+
+            if (response.code === 200) {
+                Utils.showMessage(isEditing ? '课程更新成功' : '课程创建成功', 'success');
+                closeModal();
+                await loadCourses();
+                renderCourseTable();
+                loadStatistics();
+            } else {
+                Utils.showMessage('保存失败: ' + response.message, 'danger');
+            }
+        } catch (error) {
+            console.error('Save course error:', error);
+            Utils.showMessage('保存失败: ' + error.message, 'danger');
+        } finally {
+            const saveBtn = document.getElementById('saveCourseBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
+
+    // 编辑课程
+    function editCourse(courseId) {
+        const course = courses.find(c => c.id === courseId);
+        if (course) {
+            openCourseModal(course);
+        }
+    }
+
+    // 删除课程
+    function deleteCourse(courseId) {
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return;
+
+        Utils.confirm(
+            `确定要删除课程"${course.name}"吗？\n\n⚠️ 删除后，相关的选课记录和成绩将受到影响！`,
+            async () => {
+                try {
+                    const response = await API.Course.delete(courseId);
+                    if (response.code === 200) {
+                        Utils.showMessage('课程删除成功', 'success');
+                        await loadCourses();
+                        renderCourseTable();
+                        loadStatistics();
+                    } else {
+                        Utils.showMessage('删除失败: ' + response.message, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete course error:', error);
+                    Utils.showMessage('删除失败: ' + error.message, 'danger');
+                }
+            }
+        );
+    }
+
+    // 设置先修课程
+    function setPrerequisites(courseId) {
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return;
+
+        Utils.showMessage('先修课程设置功能开发中...', 'info');
+    }
+
+    // 关闭课程模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('courseForm').reset();
+
+        // 清除验证状态
+        const invalidFields = document.querySelectorAll('.is-invalid');
+        invalidFields.forEach(field => Utils.clearFieldError(field));
+    }
+
+    // 导出函数到全局作用域
+    window.editCourse = editCourse;
+    window.deleteCourse = deleteCourse;
+    window.setPrerequisites = setPrerequisites;
+    window.closeModal = closeModal;
+</script>
+</body>
+</html>

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成绩查询 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">选课系统</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">成绩查询</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">成绩查询</h1>
+                <p class="page-description">查看您的课程成绩和学习情况</p>
+            </div>
+
+            <!-- 成绩统计 -->
+            <div class="stats-grid mb-4">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #3498db; color: white;">📊</div>
+                    <div class="stat-value" id="totalSubjects">0</div>
+                    <div class="stat-label">总科目数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #27ae60; color: white;">✅</div>
+                    <div class="stat-value" id="passedSubjects">0</div>
+                    <div class="stat-label">及格科目</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f39c12; color: white;">🎯</div>
+                    <div class="stat-value" id="averageScore">0</div>
+                    <div class="stat-label">平均分</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #9b59b6; color: white;">🏆</div>
+                    <div class="stat-value" id="totalCredits">0</div>
+                    <div class="stat-label">获得学分</div>
+                </div>
+            </div>
+
+            <!-- 筛选工具栏 -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">开课学院</label>
+                                <select class="form-select" id="collegeFilter">
+                                    <option value="">全部学院</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">成绩状态</label>
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">全部</option>
+                                    <option value="excellent">优秀(90+)</option>
+                                    <option value="good">良好(80-89)</option>
+                                    <option value="average">中等(70-79)</option>
+                                    <option value="pass">及格(60-69)</option>
+                                    <option value="fail">不及格(<60)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">学分</label>
+                                <select class="form-select" id="creditFilter">
+                                    <option value="">全部学分</option>
+                                    <option value="1">1学分</option>
+                                    <option value="2">2学分</option>
+                                    <option value="3">3学分</option>
+                                    <option value="4">4学分</option>
+                                    <option value="5">5学分及以上</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-primary" id="filterBtn">筛选</button>
+                                    <button class="btn btn-secondary ml-2" id="resetBtn">重置</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成绩列表 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>我的成绩</h5>
+                    <div>
+                        <button class="btn btn-success" id="exportBtn">
+                            📊 导出成绩单
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadingContainer" class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                    <div id="scoresContainer" style="display: none;"></div>
+                    <div id="emptyContainer" style="display: none; text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📋</div>
+                        <h5>暂无成绩记录</h5>
+                        <p class="text-muted">您还没有任何课程成绩</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成绩分布图表 -->
+            <div class="card" id="chartCard" style="display: none;">
+                <div class="card-header">
+                    <h5>成绩分布</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <canvas id="scoreDistributionChart" width="400" height="300"></canvas>
+                        </div>
+                        <div class="col-md-6">
+                            <canvas id="creditDistributionChart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GPA计算 -->
+            <div class="card" id="gpaCard" style="display: none;">
+                <div class="card-header">
+                    <h5>学分绩点(GPA)计算</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>绩点说明</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>分数段</th>
+                                        <th>等级</th>
+                                        <th>绩点</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr><td>90-100</td><td>A</td><td>4.0</td></tr>
+                                    <tr><td>85-89</td><td>A-</td><td>3.7</td></tr>
+                                    <tr><td>82-84</td><td>B+</td><td>3.3</td></tr>
+                                    <tr><td>78-81</td><td>B</td><td>3.0</td></tr>
+                                    <tr><td>75-77</td><td>B-</td><td>2.7</td></tr>
+                                    <tr><td>71-74</td><td>C+</td><td>2.3</td></tr>
+                                    <tr><td>66-70</td><td>C</td><td>2.0</td></tr>
+                                    <tr><td>62-65</td><td>C-</td><td>1.7</td></tr>
+                                    <tr><td>60-61</td><td>D</td><td>1.0</td></tr>
+                                    <tr><td><60</td><td>F</td><td>0.0</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>我的GPA统计</h6>
+                            <div class="gpa-stats">
+                                <div class="stat-item">
+                                    <div class="stat-label">总GPA:</div>
+                                    <div class="stat-value" id="overallGPA">0.00</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">加权平均分:</div>
+                                    <div class="stat-value" id="weightedAverage">0.00</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">总学分:</div>
+                                    <div class="stat-value" id="totalCreditsGPA">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">有效学分:</div>
+                                    <div class="stat-value" id="validCredits">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentStudent = null;
+    let myScores = [];
+    let filteredScores = [];
+    let colleges = [];
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        loadPageData();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        if (!AuthManager.isStudent()) {
+            Utils.showMessage('权限不足，正在跳转...', 'warning');
+            setTimeout(() => {
+                PageAuth.redirectToRolePage();
+            }, 1500);
+            return;
+        }
+    }
+
+    // 加载页面数据
+    async function loadPageData() {
+        try {
+            // 获取当前学生信息
+            const studentResponse = await API.Student.getCurrent();
+            if (studentResponse.code === 200) {
+                currentStudent = studentResponse.data;
+            }
+
+            // 并行加载数据
+            await Promise.all([
+                loadMyScores(),
+                loadColleges()
+            ]);
+
+            renderCollegeFilter();
+            renderScoreList();
+            updateStatistics();
+            renderCharts();
+            calculateGPA();
+
+        } catch (error) {
+            console.error('Load page data error:', error);
+            Utils.showMessage('加载页面数据失败', 'danger');
+        }
+    }
+
+    // 加载我的成绩
+    async function loadMyScores() {
+        try {
+            const response = await API.Score.getMy();
+            if (response.code === 200) {
+                myScores = response.data || [];
+                filteredScores = [...myScores];
+            }
+        } catch (error) {
+            console.error('Load my scores error:', error);
+            throw error;
+        }
+    }
+
+    // 加载学院列表
+    async function loadColleges() {
+        try {
+            const response = await API.College.getAll();
+            if (response.code === 200) {
+                colleges = response.data || [];
+            }
+        } catch (error) {
+            console.warn('Load colleges error:', error);
+        }
+    }
+
+    // 渲染学院筛选器
+    function renderCollegeFilter() {
+        const collegeFilter = document.getElementById('collegeFilter');
+        collegeFilter.innerHTML = '<option value="">全部学院</option>';
+
+        colleges.forEach(college => {
+            const option = document.createElement('option');
+            option.value = college.id;
+            option.textContent = college.name;
+            collegeFilter.appendChild(option);
+        });
+    }
+
+    // 渲染成绩列表
+    function renderScoreList() {
+        const container = document.getElementById('scoresContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const emptyContainer = document.getElementById('emptyContainer');
+
+        if (filteredScores.length === 0) {
+            showEmptyState();
+            return;
+        }
+
+        const columns = [
+            {
+                field: 'course',
+                title: '课程信息',
+                width: '30%',
+                render: (value) => `
+                        <div>
+                            <div class="font-weight-bold">${value.name}</div>
+                            <small class="text-muted">${value.courseCode} | ${value.credits}学分</small>
+                        </div>
+                    `
+            },
+            {
+                field: 'course',
+                title: '授课教师',
+                width: '15%',
+                render: (value) => value.teacher?.name || '未分配'
+            },
+            {
+                field: 'course',
+                title: '开课学院',
+                width: '15%',
+                render: (value) => value.college?.name || '未知'
+            },
+            {
+                field: 'score',
+                title: '成绩',
+                width: '15%',
+                render: (value) => {
+                    const grade = getScoreGrade(value);
+                    return `
+                            <div class="score-display">
+                                <span class="score-value ${grade.class}">${value}</span>
+                                <small class="d-block text-muted">${grade.letter}</small>
+                            </div>
+                        `;
+                }
+            },
+            {
+                field: 'score',
+                title: '绩点',
+                width: '10%',
+                render: (value) => calculateGradePoint(value).toFixed(1)
+            },
+            {
+                field: 'gmtCreate',
+                title: '录入时间',
+                width: '15%',
+                render: (value) => Utils.formatDate(value, 'YYYY-MM-DD')
+            }
+        ];
+
+        TableUtils.createTable(filteredScores, columns, container);
+
+        loadingContainer.style.display = 'none';
+        emptyContainer.style.display = 'none';
+        container.style.display = 'block';
+
+        // 显示图表和GPA卡片
+        document.getElementById('chartCard').style.display = 'block';
+        document.getElementById('gpaCard').style.display = 'block';
+    }
+
+    // 获取成绩等级
+    function getScoreGrade(score) {
+        if (score >= 90) return { letter: 'A', class: 'text-success' };
+        if (score >= 85) return { letter: 'A-', class: 'text-success' };
+        if (score >= 82) return { letter: 'B+', class: 'text-info' };
+        if (score >= 78) return { letter: 'B', class: 'text-info' };
+        if (score >= 75) return { letter: 'B-', class: 'text-info' };
+        if (score >= 71) return { letter: 'C+', class: 'text-warning' };
+        if (score >= 66) return { letter: 'C', class: 'text-warning' };
+        if (score >= 62) return { letter: 'C-', class: 'text-warning' };
+        if (score >= 60) return { letter: 'D', class: 'text-secondary' };
+        return { letter: 'F', class: 'text-danger' };
+    }
+
+    // 计算绩点
+    function calculateGradePoint(score) {
+        if (score >= 90) return 4.0;
+        if (score >= 85) return 3.7;
+        if (score >= 82) return 3.3;
+        if (score >= 78) return 3.0;
+        if (score >= 75) return 2.7;
+        if (score >= 71) return 2.3;
+        if (score >= 66) return 2.0;
+        if (score >= 62) return 1.7;
+        if (score >= 60) return 1.0;
+        return 0.0;
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+        const total = filteredScores.length;
+        const passed = filteredScores.filter(s => s.score >= 60).length;
+        const totalScore = filteredScores.reduce((sum, s) => sum + s.score, 0);
+        const average = total > 0 ? (totalScore / total).toFixed(1) : 0;
+        const credits = filteredScores
+            .filter(s => s.score >= 60)
+            .reduce((sum, s) => sum + s.course.credits, 0);
+
+        document.getElementById('totalSubjects').textContent = total;
+        document.getElementById('passedSubjects').textContent = passed;
+        document.getElementById('averageScore').textContent = average;
+        document.getElementById('totalCredits').textContent = credits;
+    }
+
+    // 渲染图表
+    function renderCharts() {
+        if (filteredScores.length === 0) return;
+
+        // 成绩分布图
+        renderScoreDistributionChart();
+
+        // 学分分布图
+        renderCreditDistributionChart();
+    }
+
+    // 渲染成绩分布图
+    function renderScoreDistributionChart() {
+        const canvas = document.getElementById('scoreDistributionChart');
+        const ctx = canvas.getContext('2d');
+
+        // 统计各分数段数量
+        const ranges = {
+            '90-100': 0,
+            '80-89': 0,
+            '70-79': 0,
+            '60-69': 0,
+            '<60': 0
+        };
+
+        filteredScores.forEach(score => {
+            if (score.score >= 90) ranges['90-100']++;
+            else if (score.score >= 80) ranges['80-89']++;
+            else if (score.score >= 70) ranges['70-79']++;
+            else if (score.score >= 60) ranges['60-69']++;
+            else ranges['<60']++;
+        });
+
+        // 绘制柱状图
+        const labels = Object.keys(ranges);
+        const data = Object.values(ranges);
+        const colors = ['#27ae60', '#2ecc71', '#f39c12', '#e67e22', '#e74c3c'];
+
+        drawBarChart(ctx, canvas, labels, data, colors, '成绩分布');
+    }
+
+    // 渲染学分分布图
+    function renderCreditDistributionChart() {
+        const canvas = document.getElementById('creditDistributionChart');
+        const ctx = canvas.getContext('2d');
+
+        // 统计各学分课程数量
+        const credits = {};
+        filteredScores.forEach(score => {
+            const credit = score.course.credits;
+            credits[credit] = (credits[credit] || 0) + 1;
+        });
+
+        const labels = Object.keys(credits).map(c => c + '学分');
+        const data = Object.values(credits);
+        const colors = ['#3498db', '#9b59b6', '#e74c3c', '#f39c12', '#27ae60'];
+
+        drawPieChart(ctx, canvas, labels, data, colors, '学分分布');
+    }
+
+    // 绘制柱状图
+    function drawBarChart(ctx, canvas, labels, data, colors, title) {
+        const padding = 40;
+        const chartWidth = canvas.width - 2 * padding;
+        const chartHeight = canvas.height - 2 * padding - 40;
+        const barWidth = chartWidth / labels.length * 0.8;
+        const maxValue = Math.max(...data);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制标题
+        ctx.fillStyle = '#333';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, canvas.width / 2, 25);
+
+        // 绘制柱状图
+        labels.forEach((label, index) => {
+            const value = data[index];
+            const barHeight = maxValue > 0 ? (value / maxValue) * chartHeight : 0;
+            const x = padding + index * (chartWidth / labels.length) + (chartWidth / labels.length - barWidth) / 2;
+            const y = padding + 40 + chartHeight - barHeight;
+
+            // 绘制柱子
+            ctx.fillStyle = colors[index % colors.length];
+            ctx.fillRect(x, y, barWidth, barHeight);
+
+            // 绘制数值
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(value, x + barWidth / 2, y - 5);
+
+            // 绘制标签
+            ctx.fillText(label, x + barWidth / 2, padding + 40 + chartHeight + 20);
+        });
+    }
+
+    // 绘制饼图
+    function drawPieChart(ctx, canvas, labels, data, colors, title) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) / 2 - 60;
+        const total = data.reduce((sum, value) => sum + value, 0);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制标题
+        ctx.fillStyle = '#333';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, centerX, 25);
+
+        if (total === 0) return;
+
+        let currentAngle = -Math.PI / 2;
+
+        data.forEach((value, index) => {
+            const sliceAngle = (value / total) * 2 * Math.PI;
+
+            // 绘制扇形
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+            ctx.closePath();
+            ctx.fillStyle = colors[index % colors.length];
+            ctx.fill();
+
+            // 绘制标签
+            if (value > 0) {
+                const labelAngle = currentAngle + sliceAngle / 2;
+                const labelX = centerX + Math.cos(labelAngle) * (radius * 0.7);
+                const labelY = centerY + Math.sin(labelAngle) * (radius * 0.7);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${labels[index]}`, labelX, labelY);
+                ctx.fillText(`${value}`, labelX, labelY + 15);
+            }
+
+            currentAngle += sliceAngle;
+        });
+    }
+
+    // 计算GPA
+    function calculateGPA() {
+        if (myScores.length === 0) return;
+
+        let totalPoints = 0;
+        let totalCredits = 0;
+        let totalWeightedScore = 0;
+        let validCredits = 0;
+
+        myScores.forEach(score => {
+            const credits = score.course.credits;
+            const gradePoint = calculateGradePoint(score.score);
+
+            totalPoints += gradePoint * credits;
+            totalCredits += credits;
+            totalWeightedScore += score.score * credits;
+
+            if (score.score >= 60) {
+                validCredits += credits;
+            }
+        });
+
+        const overallGPA = totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '0.00';
+        const weightedAverage = totalCredits > 0 ? (totalWeightedScore / totalCredits).toFixed(2) : '0.00';
+
+        document.getElementById('overallGPA').textContent = overallGPA;
+        document.getElementById('weightedAverage').textContent = weightedAverage;
+        document.getElementById('totalCreditsGPA').textContent = totalCredits;
+        document.getElementById('validCredits').textContent = validCredits;
+    }
+
+    // 显示空状态
+    function showEmptyState() {
+        document.getElementById('loadingContainer').style.display = 'none';
+        document.getElementById('scoresContainer').style.display = 'none';
+        document.getElementById('emptyContainer').style.display = 'block';
+        document.getElementById('chartCard').style.display = 'none';
+        document.getElementById('gpaCard').style.display = 'none';
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 筛选功能
+        document.getElementById('filterBtn').addEventListener('click', performFilter);
+        document.getElementById('resetBtn').addEventListener('click', resetFilter);
+
+        // 导出功能
+        document.getElementById('exportBtn').addEventListener('click', exportScores);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+    }
+
+    // 执行筛选
+    function performFilter() {
+        const collegeId = document.getElementById('collegeFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const credit = document.getElementById('creditFilter').value;
+
+        filteredScores = myScores.filter(score => {
+            let match = true;
+
+            if (collegeId) {
+                match = match && score.course.college?.id == collegeId;
+            }
+
+            if (status) {
+                switch (status) {
+                    case 'excellent':
+                        match = match && score.score >= 90;
+                        break;
+                    case 'good':
+                        match = match && score.score >= 80 && score.score < 90;
+                        break;
+                    case 'average':
+                        match = match && score.score >= 70 && score.score < 80;
+                        break;
+                    case 'pass':
+                        match = match && score.score >= 60 && score.score < 70;
+                        break;
+                    case 'fail':
+                        match = match && score.score < 60;
+                        break;
+                }
+            }
+
+            if (credit) {
+                if (credit === '5') {
+                    match = match && score.course.credits >= 5;
+                } else {
+                    match = match && score.course.credits == credit;
+                }
+            }
+
+            return match;
+        });
+
+        renderScoreList();
+        updateStatistics();
+        renderCharts();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById('collegeFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('creditFilter').value = '';
+
+        filteredScores = [...myScores];
+        renderScoreList();
+        updateStatistics();
+        renderCharts();
+    }
+
+    // 导出成绩
+    function exportScores() {
+        if (myScores.length === 0) {
+            Utils.showMessage('没有成绩数据可导出', 'warning');
+            return;
+        }
+
+        let csvContent = '课程编码,课程名称,授课教师,开课学院,学分,成绩,等级,绩点,录入时间\n';
+
+        myScores.forEach(score => {
+            const course = score.course;
+            const grade = getScoreGrade(score.score);
+            const gradePoint = calculateGradePoint(score.score);
+
+            csvContent += `${course.courseCode},${course.name},${course.teacher?.name || ''},${course.college?.name || ''},${course.credits},${score.score},${grade.letter},${gradePoint.toFixed(1)},${Utils.formatDate(score.gmtCreate, 'YYYY-MM-DD')}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `成绩单_${currentStudent?.name || '学生'}_${Utils.formatDate(new Date(), 'YYYY-MM-DD')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Utils.showMessage('成绩单导出成功', 'success');
+    }
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+            .score-display .score-value {
+                font-size: 18px;
+                font-weight: bold;
+            }
+
+            .gpa-stats {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+
+            .stat-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+            }
+
+            .stat-item .stat-label {
+                font-weight: 600;
+                color: #555;
+            }
+
+            .stat-item .stat-value {
+                font-size: 18px;
+                font-weight: bold;
+                color: #007bff;
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

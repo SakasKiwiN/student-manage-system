@@ -6,7 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/student_manage_system?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC
     username: root
-    password: 123456
+    password: yangjiachi159
     # 连接池配置
     hikari:
       maximum-pool-size: 10

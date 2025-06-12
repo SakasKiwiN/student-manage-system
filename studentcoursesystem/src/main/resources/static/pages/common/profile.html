@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人信息 - 学生选课系统</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="main-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                <nav class="breadcrumb">
+                    <span class="breadcrumb-item">个人中心</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item active">个人信息</span>
+                </nav>
+            </div>
+            <div class="navbar-right" id="navbarRight"></div>
+        </header>
+
+        <div class="page-content">
+            <div class="page-header">
+                <h1 class="page-title">个人信息</h1>
+                <p class="page-description">查看和管理您的个人资料</p>
+            </div>
+
+            <div class="row">
+                <!-- 基本信息卡片 -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header text-center">
+                            <h5>基本信息</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="user-avatar-large mb-3" id="userAvatarLarge">
+                                👤
+                            </div>
+                            <h5 id="displayName">加载中...</h5>
+                            <p class="text-muted" id="displayRole">-</p>
+                            <p class="text-muted" id="displayCollege">-</p>
+                            <div class="mt-3">
+                                <span class="badge bg-primary" id="accountStatus">正常</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 快速统计 -->
+                    <div class="card mt-3" id="quickStats">
+                        <div class="card-header">
+                            <h6>快速统计</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="statsContent">
+                                <!-- 根据角色动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 详细信息 -->
+                <div class="col-md-8">
+                    <!-- 账户信息 -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>账户信息</h5>
+                            <button class="btn btn-sm btn-primary" id="editAccountBtn">编辑</button>
+                        </div>
+                        <div class="card-body">
+                            <form id="accountForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">用户名</label>
+                                            <input type="text" class="form-control" id="username" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">创建时间</label>
+                                            <input type="text" class="form-control" id="gmtCreate" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">角色</label>
+                                            <input type="text" class="form-control" id="userRole" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">最后修改</label>
+                                            <input type="text" class="form-control" id="gmtModified" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- 个人详细信息 -->
+                    <div class="card mt-3" id="detailInfoCard">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 id="detailInfoTitle">详细信息</h5>
+                            <button class="btn btn-sm btn-primary" id="editDetailBtn">编辑</button>
+                        </div>
+                        <div class="card-body">
+                            <div id="detailInfoContent">
+                                <!-- 根据角色动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 安全设置 -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5>安全设置</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6>登录密码</h6>
+                                    <p class="text-muted mb-0">定期更换密码有助于保护账户安全</p>
+                                </div>
+                                <a href="/pages/common/change-password.html" class="btn btn-outline-primary">
+                                    修改密码
+                                </a>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6>最后登录</h6>
+                                    <p class="text-muted mb-0" id="lastLoginTime">-</p>
+                                </div>
+                                <span class="badge bg-success">安全</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 编辑详细信息模态框 -->
+<div class="modal" id="editDetailModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title" id="editModalTitle">编辑信息</h5>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editDetailForm">
+                <div id="editFormContent">
+                    <!-- 动态生成编辑表单 -->
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="saveDetailBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    // 页面状态
+    let currentUser = null;
+    let roleData = null;
+    let isEditing = false;
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+    });
+
+    // 监听用户认证事件
+    window.addEventListener('userAuthenticated', function(event) {
+        currentUser = event.detail.user;
+        loadUserProfile();
+        bindEvents();
+    });
+
+    // 初始化页面
+    async function initializePage() {
+        // 认证已在auth.js中处理
+    }
+
+    // 加载用户资料
+    async function loadUserProfile() {
+        try {
+            // 显示基本用户信息
+            displayBasicInfo();
+
+            // 根据角色加载详细信息
+            await loadRoleSpecificData();
+
+            // 生成详细信息表单
+            generateDetailInfo();
+
+            // 生成快速统计
+            generateQuickStats();
+
+        } catch (error) {
+            console.error('Load user profile error:', error);
+            Utils.showMessage('加载用户信息失败', 'danger');
+        }
+    }
+
+    // 显示基本信息
+    function displayBasicInfo() {
+        if (!currentUser) return;
+
+        const displayName = getRoleDisplayName();
+        const roleName = AuthManager.getRoleDisplayName();
+        const collegeName = getRoleCollegeName();
+        const avatarText = displayName.charAt(0).toUpperCase();
+
+        document.getElementById('userAvatarLarge').textContent = avatarText;
+        document.getElementById('displayName').textContent = displayName;
+        document.getElementById('displayRole').textContent = roleName;
+        document.getElementById('displayCollege').textContent = collegeName || '-';
+
+        // 填充账户信息
+        document.getElementById('username').value = currentUser.username;
+        document.getElementById('userRole').value = roleName;
+        document.getElementById('gmtCreate').value = Utils.formatDate(currentUser.gmtCreate, 'YYYY-MM-DD HH:mm');
+        document.getElementById('gmtModified').value = Utils.formatDate(currentUser.gmtModified, 'YYYY-MM-DD HH:mm');
+    }
+
+    // 获取角色显示名称
+    function getRoleDisplayName() {
+        if (currentUser.student) return currentUser.student.name;
+        if (currentUser.teacher) return currentUser.teacher.name;
+        return currentUser.username;
+    }
+
+    // 获取角色学院名称
+    function getRoleCollegeName() {
+        if (currentUser.student) return currentUser.student.college?.name;
+        if (currentUser.teacher) return currentUser.teacher.college?.name;
+        return null;
+    }
+
+    // 加载角色特定数据
+    async function loadRoleSpecificData() {
+        try {
+            if (AuthManager.isStudent()) {
+                const response = await API.Student.getCurrent();
+                if (response.code === 200) {
+                    roleData = response.data;
+                }
+            } else if (AuthManager.isTeacher()) {
+                const response = await API.Teacher.getCurrent();
+                if (response.code === 200) {
+                    roleData = response.data;
+                }
+            }
+        } catch (error) {
+            console.warn('Load role specific data error:', error);
+        }
+    }
+
+    // 生成详细信息
+    function generateDetailInfo() {
+        const content = document.getElementById('detailInfoContent');
+        const title = document.getElementById('detailInfoTitle');
+
+        if (AuthManager.isStudent() && roleData) {
+            title.textContent = '学生信息';
+            content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">学号</label>
+                                <input type="text" class="form-control" value="${roleData.studentNo}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">姓名</label>
+                                <input type="text" class="form-control" value="${roleData.name}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">年级</label>
+                                <input type="text" class="form-control" value="${roleData.grade}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">班级</label>
+                                <input type="text" class="form-control" value="${roleData.class}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-group">
+                                <label class="form-label">所属学院</label>
+                                <input type="text" class="form-control" value="${roleData.college?.name || ''}" readonly>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        } else if (AuthManager.isTeacher() && roleData) {
+            title.textContent = '教师信息';
+            content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">教师编号</label>
+                                <input type="text" class="form-control" value="${roleData.teacherNo}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">姓名</label>
+                                <input type="text" class="form-control" value="${roleData.name}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">职称</label>
+                                <input type="text" class="form-control" value="${roleData.title}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">所属学院</label>
+                                <input type="text" class="form-control" value="${roleData.college?.name || ''}" readonly>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        } else {
+            title.textContent = '用户信息';
+            content.innerHTML = `
+                    <div class="alert alert-info">
+                        <p>您是${AuthManager.getRoleDisplayName()}，暂无额外的详细信息需要显示。</p>
+                    </div>
+                `;
+            document.getElementById('editDetailBtn').style.display = 'none';
+        }
+    }
+
+    // 生成快速统计
+    async function generateQuickStats() {
+        const content = document.getElementById('statsContent');
+
+        try {
+            if (AuthManager.isStudent()) {
+                const response = await API.CourseSelection.getMySelections();
+                if (response.code === 200) {
+                    const selections = response.data || [];
+                    const selected = selections.filter(s => s.status === 2 && s.lotteryResult === 1).length;
+                    const pending = selections.filter(s => s.status === 1).length;
+
+                    content.innerHTML = `
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="stat-value text-primary">${selected}</div>
+                                    <div class="stat-label">已选课程</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stat-value text-warning">${pending}</div>
+                                    <div class="stat-label">申请中</div>
+                                </div>
+                            </div>
+                        `;
+                }
+            } else if (AuthManager.isTeacher() && roleData) {
+                const response = await API.Course.getByTeacher(roleData.id);
+                if (response.code === 200) {
+                    const courses = response.data || [];
+                    const activeCourses = courses.filter(c => c.status === 1).length;
+
+                    content.innerHTML = `
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="stat-value text-primary">${courses.length}</div>
+                                    <div class="stat-label">总课程</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stat-value text-success">${activeCourses}</div>
+                                    <div class="stat-label">启用中</div>
+                                </div>
+                            </div>
+                        `;
+                }
+            } else {
+                content.innerHTML = `
+                        <div class="text-center text-muted">
+                            <p>暂无统计信息</p>
+                        </div>
+                    `;
+            }
+        } catch (error) {
+            console.warn('Generate quick stats error:', error);
+            content.innerHTML = `
+                    <div class="text-center text-muted">
+                        <p>加载统计信息失败</p>
+                    </div>
+                `;
+        }
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 编辑详细信息
+        document.getElementById('editDetailBtn').addEventListener('click', openEditModal);
+
+        // 保存详细信息
+        document.getElementById('saveDetailBtn').addEventListener('click', saveDetailInfo);
+
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+
+        // 账户编辑（暂时禁用）
+        document.getElementById('editAccountBtn').addEventListener('click', function() {
+            Utils.showMessage('账户信息由系统管理员管理，如需修改请联系管理员', 'info');
+        });
+    }
+
+    // 打开编辑模态框
+    function openEditModal() {
+        if (!roleData) return;
+
+        let formContent = '';
+
+        if (AuthManager.isStudent()) {
+            formContent = `
+                    <input type="hidden" id="editId" value="${roleData.id}">
+                    <div class="form-group">
+                        <label class="form-label">姓名 *</label>
+                        <input type="text" class="form-control" id="editName" value="${roleData.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">年级</label>
+                        <input type="text" class="form-control" id="editGrade" value="${roleData.grade}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">班级</label>
+                        <input type="text" class="form-control" id="editClass" value="${roleData.class}">
+                    </div>
+                `;
+            document.getElementById('editModalTitle').textContent = '编辑学生信息';
+        } else if (AuthManager.isTeacher()) {
+            formContent = `
+                    <input type="hidden" id="editId" value="${roleData.id}">
+                    <div class="form-group">
+                        <label class="form-label">姓名 *</label>
+                        <input type="text" class="form-control" id="editName" value="${roleData.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">职称</label>
+                        <input type="text" class="form-control" id="editTitle" value="${roleData.title}">
+                    </div>
+                `;
+            document.getElementById('editModalTitle').textContent = '编辑教师信息';
+        }
+
+        document.getElementById('editFormContent').innerHTML = formContent;
+        Utils.showModal(document.getElementById('editDetailModal'));
+    }
+
+    // 保存详细信息
+    async function saveDetailInfo() {
+        const form = document.getElementById('editDetailForm');
+
+        if (!Utils.validateForm(form)) {
+            return;
+        }
+
+        try {
+            const saveBtn = document.getElementById('saveDetailBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            const id = document.getElementById('editId').value;
+            const name = document.getElementById('editName').value.trim();
+
+            let response;
+            if (AuthManager.isStudent()) {
+                const grade = document.getElementById('editGrade').value.trim();
+                const studentClass = document.getElementById('editClass').value.trim();
+
+                const updatedData = {
+                    ...roleData,
+                    name,
+                    grade,
+                    class: studentClass
+                };
+
+                response = await API.Student.update(id, updatedData);
+            } else if (AuthManager.isTeacher()) {
+                const title = document.getElementById('editTitle').value.trim();
+
+                const updatedData = {
+                    ...roleData,
+                    name,
+                    title
+                };
+
+                response = await API.Teacher.update(id, updatedData);
+            }
+
+            if (response && response.code === 200) {
+                Utils.showMessage('信息更新成功', 'success');
+                closeModal();
+                // 重新加载数据
+                await loadRoleSpecificData();
+                displayBasicInfo();
+                generateDetailInfo();
+            } else {
+                Utils.showMessage('更新失败: ' + (response?.message || '未知错误'), 'danger');
+            }
+        } catch (error) {
+            console.error('Save detail info error:', error);
+            Utils.showMessage('更新失败: ' + error.message, 'danger');
+        } finally {
+            const saveBtn = document.getElementById('saveDetailBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '保存';
+        }
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        Utils.closeModal();
+        document.getElementById('editDetailForm').reset();
+    }
+
+    // 导出函数到全局作用域
+    window.closeModal = closeModal;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+            .user-avatar-large {
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 32px;
+                color: white;
+                font-weight: 600;
+                margin: 0 auto;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>
